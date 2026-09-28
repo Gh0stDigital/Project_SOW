@@ -229,7 +229,37 @@ export interface DungeonTierDef {
   label: string
   /** One-line flavor/difficulty blurb shown in the dungeon info display. */
   description: string
+  /** The most words a run at this tier draws on. A larger set is sampled down. */
   wordLimit: number
+  /**
+   * How many of the run's words must be met before the Key Room can appear.
+   *
+   * It used to be all of them, which quietly made the size of your word list
+   * the length of your run: ten words was a short dungeon and fifty was a
+   * long one, for identical rewards. Nobody was being paid for the extra
+   * half hour, so the only sensible play was to bring as few words as
+   * possible — and with no floor at all, a one-word set bought an instant
+   * key, a one-answer barrier and the tier's full rewards.
+   *
+   * A fixed number instead, so bringing more words changes what you meet
+   * rather than how long you are there. A small set drills: the same words
+   * keep coming back, many reps each. A large one reviews: a wide draw at
+   * the same length, which the run's own weighting steers toward whatever
+   * you have not met or keep getting wrong. Neither pays better, so the
+   * choice is about how you want to study.
+   */
+  wordsToOpenKeyRoom: number
+  /**
+   * How many words the boss barrier demands, drawn from the run's pool.
+   *
+   * Also used to be one per word in the pool, so the fifty-word dungeon
+   * asked for fifty correct answers before its boss could be touched. The
+   * pool was being billed for depth twice — once here and once in the key —
+   * while the fight itself was no harder. Difficulty lives in enemy levels
+   * now, which leaves the barrier free to be the ritual that opens the boss
+   * rather than the reason the boss is hard.
+   */
+  barrierWords: number
   /** Roughly how many non-boss events occur before the boss room can spawn. */
   minEventsBeforeBossEligible: number
   /** Multiplies hazard damage — traps, which are not combatants. */
@@ -266,6 +296,16 @@ export function enemyLevelRange(worldId: string, tierId: DungeonTierId): EnemyLe
   return WORLD_TIER_LEVELS[worldId]?.[tierId] ?? WORLD_TIER_LEVELS['dragon-king-palace'][tierId]
 }
 
+/**
+ * The fewest words a set needs to carry a run at this tier.
+ *
+ * Exactly the key requirement, because a set smaller than that could never
+ * open the Key Room and the run would have nowhere to go.
+ */
+export function minimumSetSize(tier: DungeonTierDef): number {
+  return tier.wordsToOpenKeyRoom
+}
+
 /** The middle of a band — what a Totem should be to belong there. */
 export function recommendedLevel(worldId: string, tierId: DungeonTierId): number {
   const [low, high] = enemyLevelRange(worldId, tierId)
@@ -280,8 +320,9 @@ export function recommendedLevel(worldId: string, tierId: DungeonTierId): number
  * points across the whole game — so a deeper tier did not mean tougher foes,
  * it meant *more questions*. Depth was a reading load.
  *
- * What a tier says now is how many words the run draws on and roughly how
- * long it runs before the boss can appear. How hard it is comes from the
+ * What a tier says now is how many words the run draws on, how many of them
+ * it has to teach before the key turns up, and roughly how long it runs
+ * before the boss can appear. How hard it is comes from the
  * band of levels its foes roll in, which is set per world in
  * WORLD_TIER_LEVELS above — the same tier is a different proposition in a
  * later world.
@@ -293,6 +334,8 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '10단어 던전',
     description: '부담 없는 첫 탐험 — 기초 어휘를 다지기에 좋습니다.',
     wordLimit: 10,
+    wordsToOpenKeyRoom: 8,
+    barrierWords: 4,
     minEventsBeforeBossEligible: 6,
     hazardDamageMultiplier: 1,
   },
@@ -302,6 +345,8 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '25단어 던전',
     description: '익숙한 단어와 새 단어가 섞여 압박이 점점 커지는 긴 시험입니다.',
     wordLimit: 25,
+    wordsToOpenKeyRoom: 12,
+    barrierWords: 6,
     minEventsBeforeBossEligible: 12,
     hazardDamageMultiplier: 1.6,
   },
@@ -311,6 +356,8 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '50단어 던전',
     description: '가장 깊은 곳 — 충분히 준비한 사람을 위한 어휘의 시험대입니다.',
     wordLimit: 50,
+    wordsToOpenKeyRoom: 16,
+    barrierWords: 8,
     minEventsBeforeBossEligible: 20,
     hazardDamageMultiplier: 2.4,
   },

@@ -8,9 +8,9 @@ import type {
   DungeonState,
   RewardBundle,
 } from '@/domain/dungeon'
-import { allWordsIntroduced, createEmptyRunStats } from '@/domain/dungeon'
+import { createEmptyRunStats, introducedCount } from '@/domain/dungeon'
 import type { DungeonTierDef } from '@/config/balance'
-import { spellBalance } from '@/config/balance'
+import { dungeonTiers, spellBalance } from '@/config/balance'
 import {
   fourWayDirectionChance,
   fourWayDirections,
@@ -289,9 +289,56 @@ export function markWordIntroduced(run: DungeonRunState, spellId: string): Dunge
   return refreshKeyRoomUnlock({ ...run, wordStats: markIntroduced(run.wordStats, spellId) })
 }
 
+/**
+ * How many of this run's words have to be met before the Key Room can turn
+ * up.
+ *
+ * The tier's own number, except when the player brought fewer words than
+ * that — then it is however many they brought, because a requirement the
+ * pool cannot satisfy is a run with no way out. The dungeon screen refuses
+ * an undersized set, so this is a guard against a saved selection or a set
+ * that shrank after the fact rather than an ordinary case.
+ */
+export function wordsNeededForKey(run: DungeonRunState): number {
+  const tier = dungeonTiers.find((t) => t.id === run.config.tierId)
+  const asked = tier?.wordsToOpenKeyRoom ?? run.config.dungeonWordIds.length
+  return Math.max(1, Math.min(asked, run.config.dungeonWordIds.length))
+}
+
+/** How many words the boss barrier demands, never more than the pool holds. */
+export function barrierWordCount(run: DungeonRunState): number {
+  const tier = dungeonTiers.find((t) => t.id === run.config.tierId)
+  const asked = tier?.barrierWords ?? run.config.dungeonWordIds.length
+  return Math.max(1, Math.min(asked, run.config.dungeonWordIds.length))
+}
+
+/**
+ * The words the boss barrier will demand.
+ *
+ * Drawn from the ones this run has actually met, so the barrier never asks
+ * for a word the dungeon never taught — with a big set and a fixed barrier
+ * size that would otherwise happen most runs. It falls back to the rest of
+ * the pool only if too few have been introduced, which the Key Room gate
+ * makes unlikely but not impossible.
+ */
+export function pickBarrierWords(run: DungeonRunState, rng: () => number = Math.random): string[] {
+  const want = barrierWordCount(run)
+  const met = run.config.dungeonWordIds.filter((id) => run.wordStats[id]?.introduced)
+  const unmet = run.config.dungeonWordIds.filter((id) => !run.wordStats[id]?.introduced)
+  const shuffle = (ids: string[]) => {
+    const out = [...ids]
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1))
+      ;[out[i], out[j]] = [out[j], out[i]]
+    }
+    return out
+  }
+  return [...shuffle(met), ...shuffle(unmet)].slice(0, want)
+}
+
 function refreshKeyRoomUnlock(run: DungeonRunState): DungeonRunState {
   if (run.keyRoomUnlocked) return run
-  if (!allWordsIntroduced(run)) return run
+  if (introducedCount(run) < wordsNeededForKey(run)) return run
   return { ...run, keyRoomUnlocked: true }
 }
 

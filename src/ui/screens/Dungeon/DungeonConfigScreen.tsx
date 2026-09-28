@@ -7,7 +7,13 @@ import { WorldImage } from '@/ui/components/WorldImage'
 import { playableWorlds, incompleteWorlds, resolveWorld } from '@/systems/worldRegistry'
 import { TotemPanel } from '@/ui/components/TotemPanel'
 import { SlidePanel } from '@/ui/components/SlidePanel'
-import { dungeonTiers, enemyLevelRange, recommendedLevel, type DungeonTierId } from '@/config/balance'
+import {
+  dungeonTiers,
+  enemyLevelRange,
+  minimumSetSize,
+  recommendedLevel,
+  type DungeonTierId,
+} from '@/config/balance'
 import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
@@ -79,8 +85,24 @@ export function DungeonConfigScreen() {
    */
   const dungeonRandom = dungeonSetId === RANDOM_SET_ID
   const dungeonSet = dungeonRandom ? null : spellSets.find((s) => s.id === dungeonSetId) ?? null
-  const randomPool = usableSets(spellSets)
   const tier = dungeonTiers.find((t) => t.id === tierId)!
+  /**
+   * A set has to carry at least the tier's key requirement.
+   *
+   * Without a floor, the shortest possible run was also the best-paying one:
+   * a one-word set met its only word immediately, faced a one-answer
+   * barrier, and collected the tier's full rewards. The floor is exactly the
+   * key requirement, since a smaller set could never open the Key Room at
+   * all.
+   */
+  const minWords = minimumSetSize(tier)
+  // A type guard, so narrowing survives the check at the call sites.
+  const bigEnough = <T extends { spellIds: string[] },>(set: T | null | undefined): set is T =>
+    !!set && set.spellIds.length >= minWords
+  const randomPool = usableSets(spellSets).filter(bigEnough)
+  /** A named set the player chose that cannot carry a run at this tier. */
+  const chosenSetTooSmall =
+    !dungeonRandom && !!dungeonSet && dungeonSet.spellIds.length < minWords
 
   // An unfinished world pack is listed below with what it still needs, so it
   // reads as work in progress rather than as a bug.
@@ -98,7 +120,7 @@ export function DungeonConfigScreen() {
     isUsable(totem) &&
     !!totemSet &&
     totemSet.spellIds.length > 0 &&
-    (dungeonRandom ? randomPool.length > 0 : !!dungeonSet && dungeonSet.spellIds.length > 0) &&
+    (dungeonRandom ? randomPool.length > 0 : bigEnough(dungeonSet)) &&
     !!world &&
     !worldLocked &&
     !tierLocked
@@ -113,9 +135,9 @@ export function DungeonConfigScreen() {
     // what gets saved, so every run re-rolls instead of the first pick
     // becoming the permanent answer.
     const chosen = dungeonRandom
-      ? pickRandomSet(spellSets, Math.random, lastSelection.lastRandomSetId)
+      ? pickRandomSet(randomPool, Math.random, lastSelection.lastRandomSetId)
       : dungeonSet
-    if (!chosen) return
+    if (!bigEnough(chosen)) return
     setLastSelection({
       totemSpellSetId: totemSet.id,
       dungeonSpellSetId: dungeonSetId ?? chosen.id,
@@ -191,10 +213,7 @@ export function DungeonConfigScreen() {
             </button>
             <button
               className="setup-option"
-              data-warn={
-                dungeonRandom ? (randomPool.length > 0 ? undefined : true)
-                : dungeonSet && dungeonSet.spellIds.length > 0 ? undefined : true
-              }
+              data-warn={dungeonRandom ? (randomPool.length > 0 ? undefined : true) : bigEnough(dungeonSet) ? undefined : true}
               onClick={() => setOpenSetting('dungeonSet')}
             >
               <span className="setup-option-label">성향 (단어)</span>
@@ -216,7 +235,8 @@ export function DungeonConfigScreen() {
 
           {dungeonSet && (
             <p className="faint setup-summary">
-              단어 {dungeonSet.spellIds.length}개 중 {Math.min(dungeonSet.spellIds.length, tier.wordLimit)}개를 사용합니다
+              단어 {dungeonSet.spellIds.length}개 중 {Math.min(dungeonSet.spellIds.length, tier.wordLimit)}개를 사용합니다 ·
+              열쇠까지 {tier.wordsToOpenKeyRoom}개 · 보스 결계 {tier.barrierWords}개
             </p>
           )}
           {dungeonRandom && randomPool.length > 0 && (
@@ -439,11 +459,15 @@ export function DungeonConfigScreen() {
             </button>
             {!canStart && (
               <p className="faint">
-                {tierLocked
-                  ? '이 등급은 아직 열리지 않았습니다 — 한 단계 위의 보스를 먼저 쓰러뜨리세요.'
-                  : worldLocked
-                    ? '이 세계는 아직 열리지 않았습니다.'
-                    : '두 역할 모두에 비어 있지 않은 주문 세트를 골라야 계속할 수 있습니다.'}
+                {chosenSetTooSmall && dungeonSet
+                  ? `성향 세트에 단어가 ${minWords}개 이상 필요합니다 (지금 ${dungeonSet.spellIds.length}개).`
+                  : dungeonRandom && randomPool.length === 0
+                    ? `단어 ${minWords}개 이상인 세트가 없습니다.`
+                    : tierLocked
+                      ? '이 등급은 아직 열리지 않았습니다 — 한 단계 위의 보스를 먼저 쓰러뜨리세요.'
+                      : worldLocked
+                        ? '이 세계는 아직 열리지 않았습니다.'
+                        : '두 역할 모두에 비어 있지 않은 주문 세트를 골라야 계속할 수 있습니다.'}
               </p>
             )}
           </div>

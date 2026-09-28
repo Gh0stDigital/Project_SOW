@@ -6,6 +6,7 @@ import { SlidePanel } from '@/ui/components/SlidePanel'
 import { AssetImage } from '@/ui/components/AssetImage'
 import { Bar } from '@/ui/components/Bar'
 import { UiIcon } from '@/ui/components/UiIcon'
+import { wordsNeededThisRun } from '@/state/dungeonStore'
 
 interface StatusPanelProps {
   totem: Totem
@@ -57,8 +58,13 @@ export function StatusPanel({ totem, run, totemSet, challenged, onClose }: Statu
             <div className="value">{tier?.label ?? run.config.tierId}</div>
           </div>
           <div className="stat-tile">
-            <div className="faint">접한 단어</div>
-            <div className="value">{challenged}/{run.config.dungeonWordIds.length}</div>
+            {/* Toward the key, not toward the whole set — the set can be
+                far larger than the run needs, and counting against it made
+                every long list look like an unfinished run. */}
+            <div className="faint">열쇠까지</div>
+            <div className="value">
+              {Math.min(challenged, wordsNeededThisRun(run))}/{wordsNeededThisRun(run)}
+            </div>
           </div>
           <div className="stat-tile">
             <div className="faint">턴</div>

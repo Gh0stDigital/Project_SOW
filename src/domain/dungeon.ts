@@ -241,6 +241,3 @@ export function introducedCount(run: DungeonRunState): number {
   return run.config.dungeonWordIds.filter((id) => run.wordStats[id]?.introduced).length
 }
 
-export function allWordsIntroduced(run: DungeonRunState): boolean {
-  return run.config.dungeonWordIds.every((id) => run.wordStats[id]?.introduced)
-}

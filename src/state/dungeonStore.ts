@@ -15,6 +15,8 @@ import {
   startDungeon,
   generateNextEvent,
   applyDirectionChoice,
+  pickBarrierWords,
+  wordsNeededForKey,
   applyRewardBundle,
   canEnterBoss,
   consumeKey,
@@ -80,6 +82,17 @@ function resolveSpells(ids: string[], allSpells: Spell[]): Spell[] {
 /** Words introduced so far — drives the HUD and the Key Room gate. */
 export function challengedCount(run: DungeonRunState): number {
   return introducedCount(run)
+}
+
+/**
+ * How many the run is waiting on before the key can appear.
+ *
+ * The HUD counts toward this rather than toward the whole word list: with a
+ * fixed requirement, a bar filling to "8 of 50" would read as a run barely
+ * started when it is in fact about to end.
+ */
+export function wordsNeededThisRun(run: DungeonRunState): number {
+  return wordsNeededForKey(run)
 }
 
 /** Which slide-over panel is open on top of the dungeon, if any. */
@@ -449,7 +462,11 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     // A boss does not roll — it stands at the bottom of its band, so the
     // deepest thing in a dungeon is always its guardian.
     const boss = spawnBoss(world, `boss-${run.startedAt}`, enemyLevelRange(run.config.worldId, tier.id)[1])
-    const bossBattle = startBattle(boss, totemDeckIds(run), run.config.dungeonWordIds)
+    // The barrier is a fixed number of words now, not one per word in the
+    // pool — so a fifty-word run no longer needs fifty correct answers
+    // before its boss can be touched. Drawn from the words this run actually
+    // taught.
+    const bossBattle = startBattle(boss, totemDeckIds(run), pickBarrierWords(run))
     const run2 = consumeKey(setState(run, 'BossBattle'))
     set({ run: { ...run2, currentEvent: null, standbyNotice: null }, battle: bossBattle, stage: 'intro', activePanel: null, confirmingBoss: false })
   },

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { DungeonState } from '@/domain/dungeon'
-import { useDungeonStore, challengedCount } from '@/state/dungeonStore'
+import { useDungeonStore, challengedCount, wordsNeededThisRun } from '@/state/dungeonStore'
 import { usePersistentStore } from '@/state/persistentStore'
 import { canEnterBoss } from '@/systems/dungeonSession'
 import { sceneSlotFor, sceneKindForEvent } from '@/config/scenes'
@@ -118,7 +118,10 @@ export function ExploreView() {
     return () => window.clearInterval(id)
   }, [timerRunning, tickEventTimer])
   const introduced = challengedCount(run)
-  const total = run.config.dungeonWordIds.length
+  // The track counts toward what actually opens the key, not toward the
+  // whole word list. With a fixed requirement a bar filling to "8 of 50"
+  // would read as a run barely started when it is about to end.
+  const total = wordsNeededThisRun(run)
 
   const inStandby = run.state === 'Standby' && !rolling
   const challengeSpell = event?.challenge
