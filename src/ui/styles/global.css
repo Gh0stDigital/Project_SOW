@@ -3463,6 +3463,27 @@ button.totem-hero-frame {
   color: var(--accent-gold);
 }
 
+.enemy-level {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+}
+
+/* A foe above your level is the one thing on this screen worth interrupting
+   for: it is the difference between a routine fight and a mistake. */
+.enemy-level.over {
+  color: var(--accent-gold);
+}
+
+.enemy-outmatch {
+  margin: 4px 0 0;
+  font-size: 11px;
+  text-align: center;
+}
+
+.setup-summary.warn {
+  color: var(--accent-gold);
+}
+
 /* A locked portrait stays in the grid — it is something to look forward to,
    and hiding it would hide that there is anything to unlock — but it has to
    read as unavailable at a glance rather than only by the padlock beside its

@@ -14,6 +14,7 @@ import { spellBalance } from '@/config/balance'
 import {
   fourWayDirectionChance,
   fourWayDirections,
+  levelDirections,
   twoWayDirections,
   type DungeonEventType,
 } from '@/config/dungeonEvents'
@@ -142,7 +143,13 @@ function pickEventSpell(run: DungeonRunState, spells: Spell[], rng: () => number
 }
 
 function buildDirectionChoices(rng: () => number): DirectionChoice[] {
-  const source = rng() < fourWayDirectionChance ? fourWayDirections : twoWayDirections
+  const fourWay = rng() < fourWayDirectionChance
+  const slots = fourWay ? 4 : 2
+  // The level-biasing paths are pooled in with the rest and the fork is cut
+  // to its slots afterwards, so a fork is sometimes a question about danger
+  // and sometimes a question about what you are hunting for — rather than
+  // always offering both and always looking the same.
+  const source = [...(fourWay ? fourWayDirections : twoWayDirections), ...levelDirections]
   // Shuffle so left/right (or the four slots) aren't in a fixed order; the
   // player still gets each path's thematic clue, never a raw probability.
   const shuffled = [...source]
@@ -150,11 +157,12 @@ function buildDirectionChoices(rng: () => number): DirectionChoice[] {
     const j = Math.floor(rng() * (i + 1))
     ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
-  return shuffled.map((d) => ({
+  return shuffled.slice(0, slots).map((d) => ({
     id: d.id,
     label: d.label,
     flavor: d.flavor,
     weightDeltas: d.weightDeltas,
+    ...(d.enemyLevelBias === undefined ? {} : { enemyLevelBias: d.enemyLevelBias }),
     durationMoves: d.durationMoves,
   }))
 }

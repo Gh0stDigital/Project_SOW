@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useDungeonStore } from '@/state/dungeonStore'
 import { usePersistentStore } from '@/state/persistentStore'
-import { attackCardAvatar, selectableSpellIds } from '@/systems/battleEngine'
+import { attackCardAvatar, outmatchedBy, selectableSpellIds } from '@/systems/battleEngine'
 import { isFullyCleared, remainingCount, uncleared } from '@/systems/bossPlateau'
 import { WorldImage } from '@/ui/components/WorldImage'
 import { resolveWorld } from '@/systems/worldRegistry'
@@ -10,7 +10,8 @@ import { BarrierRoulette } from '@/ui/components/BarrierRoulette'
 import { ExampleSentence } from '@/ui/components/ExampleSentence'
 import { useDamageFlash } from '@/ui/hooks/useDamageFlash'
 import { sceneSlotFor } from '@/config/scenes'
-import { totemBalance } from '@/config/balance'
+import { powerBalance } from '@/config/balance'
+import { attackPower } from '@/systems/enemyLevel'
 import { Bar } from '@/ui/components/Bar'
 import { SpellCard } from '@/ui/components/SpellCard'
 import { TotemPanel } from '@/ui/components/TotemPanel'
@@ -90,6 +91,7 @@ export function BattleView() {
   const answering = battle.phase === 'player_challenge' || battle.phase === 'enemy_challenge'
 
   const enemyHit = useDamageFlash(battle.enemy.currentHp)
+  const outmatched = outmatchedBy(totem.level, battle.enemy.level)
 
   // A boss fight gets the boss room; ordinary fights get battle art.
   const world = resolveWorld(run.config.worldId)
@@ -148,12 +150,24 @@ export function BattleView() {
 
       <div className="enemy-hp-row">
         <div className="row">
-          <span>{battle.enemy.name}</span>
+          <span>
+            {battle.enemy.name}{' '}
+            {/* The level, next to the name, because it is the number the
+                player is really fighting. Marked when it is above theirs —
+                that is the moment their words start landing short. */}
+            <b className={outmatched > 0 ? 'enemy-level over' : 'enemy-level'}>Lv {battle.enemy.level}</b>
+          </span>
           <span className="faint">
             {battle.enemy.currentHp}/{battle.enemy.maxHp} HP
           </span>
         </div>
         <Bar value={battle.enemy.currentHp} max={battle.enemy.maxHp} kind="hp" />
+        {outmatched > 0 && (
+          <p className="faint enemy-outmatch">
+            내 토템보다 {battle.enemy.level - totem.level}레벨 높습니다 — 단어의 위력이{' '}
+            {Math.round(powerBalance.efficiency(totem.level, battle.enemy.level) * 100)}%만 실립니다
+          </p>
+        )}
       </div>
 
       <TotemPanel totem={totem} compact />
@@ -207,7 +221,7 @@ export function BattleView() {
                   spell={spell}
                   avatar={attackCardAvatar(spell.korean)}
                   barrierCleared={barrierUp ? cleared : undefined}
-                  might={totemBalance.might(totem.level)}
+                  might={attackPower(totem.level, battle.enemy.level)}
                   onClick={() => selectCard(spell.id)}
                 />
               )

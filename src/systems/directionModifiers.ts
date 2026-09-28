@@ -18,6 +18,7 @@ export function addModifier(active: ActiveModifier[], choice: DirectionChoice): 
     id: choice.id,
     label: choice.label,
     weightDeltas: choice.weightDeltas,
+    ...(choice.enemyLevelBias === undefined ? {} : { enemyLevelBias: choice.enemyLevelBias }),
     movesRemaining: choice.durationMoves,
   }
   if (!directionBalance.replaceOnOverlappingType) return [...active, incoming]
@@ -25,9 +26,22 @@ export function addModifier(active: ActiveModifier[], choice: DirectionChoice): 
   const touched = new Set(Object.keys(choice.weightDeltas) as DungeonEventType[])
   const kept = active.filter((m) => {
     const overlaps = (Object.keys(m.weightDeltas) as DungeonEventType[]).some((t) => touched.has(t))
-    return !overlaps
+    // Two paths pulling the level band in opposite directions would net out
+    // to nothing and leave the player with no idea which one won, so the
+    // newer one replaces the older exactly as overlapping weights do.
+    const bothBiasLevel = m.enemyLevelBias !== undefined && choice.enemyLevelBias !== undefined
+    return !overlaps && !bothBiasLevel
   })
   return [...kept, incoming]
+}
+
+/**
+ * The level bias currently in force, clamped to the range one path can ask
+ * for — so no accumulation of effects can push foes outside their band.
+ */
+export function activeLevelBias(active: ActiveModifier[]): number {
+  const total = active.reduce((sum, m) => sum + (m.enemyLevelBias ?? 0), 0)
+  return Math.max(-1, Math.min(1, total))
 }
 
 /**
@@ -61,5 +75,10 @@ export function describeModifier(mod: ActiveModifier): string {
   const parts = (Object.entries(mod.weightDeltas) as [DungeonEventType, number][]).map(([type, delta]) => {
     return `${delta > 0 ? '↑' : '↓'} ${eventTypeLabels[type]}`
   })
+  // The level bias is the part the player most needs to see — it is the
+  // difference between the next fight being routine and being a mistake.
+  if (mod.enemyLevelBias !== undefined && mod.enemyLevelBias !== 0) {
+    parts.push(`${mod.enemyLevelBias > 0 ? '↑' : '↓'} 적 레벨`)
+  }
   return parts.join(' · ')
 }

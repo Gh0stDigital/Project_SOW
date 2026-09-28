@@ -15,6 +15,15 @@ export interface EnemyCombatant {
   kind: 'enemy' | 'boss' | 'mimic'
   name: string
   image: WorldImageRef
+  /**
+   * The level this foe rolled inside its tier's band.
+   *
+   * Everything else about it in combat terms comes from this number — its
+   * HP, its damage, how much of a word the Totem facing it may deliver, and
+   * how hard its questions are. It is shown to the player, because the whole
+   * decision of whether to fight or run is "how does that compare to me".
+   */
+  level: number
   maxHp: number
   currentHp: number
   damage: number

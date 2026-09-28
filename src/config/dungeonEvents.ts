@@ -80,6 +80,13 @@ export interface DirectionEffect {
   flavor: string
   /** Event types this path biases, and by how much. */
   weightDeltas: Partial<Record<DungeonEventType, number>>
+  /**
+   * Which end of the tier's level band its foes come from while this path's
+   * effect lasts: -1 the shallow end, +1 the deep end. This is the player's
+   * hand on the one thing a dungeon otherwise decides for them — how strong
+   * the next few things they meet are going to be.
+   */
+  enemyLevelBias?: number
   /** How many Move events the effect lasts for. */
   durationMoves: number
 }
@@ -99,6 +106,33 @@ export const directionBalance = {
    */
   replaceOnOverlappingType: true,
 }
+
+/**
+ * Paths that change how strong the next few foes are rather than what kind
+ * of room turns up. Offered alongside the others, so a fork is sometimes a
+ * question about danger and sometimes a question about what you are looking
+ * for.
+ */
+export const levelDirections: DirectionEffect[] = [
+  {
+    id: 'dir_descent',
+    label: '내려가는 길',
+    flavor: '계단이 어둠 속으로 이어집니다. 아래쪽 공기가 무겁습니다.',
+    // Deeper means stronger, and stronger means worth more — the risk pays
+    // for itself through the XP a higher-level kill is worth.
+    weightDeltas: { battle: Math.round(directionBalance.boost * 0.5) },
+    enemyLevelBias: 1,
+    durationMoves: directionBalance.standardDuration,
+  },
+  {
+    id: 'dir_shallows',
+    label: '얕은 길',
+    flavor: '빛이 스며들고, 발밑의 돌이 닳아 있습니다. 누군가 자주 지나다닌 길입니다.',
+    enemyLevelBias: -1,
+    weightDeltas: {},
+    durationMoves: directionBalance.standardDuration,
+  },
+]
 
 export const twoWayDirections: DirectionEffect[] = [
   {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Spell } from '@/domain/spell'
-import { spellBalance, totemBalance, dungeonTiers } from '@/config/balance'
+import { spellBalance, totemBalance } from '@/config/balance'
 import { findWorld } from './worldRegistry'
 import { beginPlayerChallenge, defenseDamage, resolvePlayerAttack, spawnEnemy, startBattle } from './battleEngine'
 import { createSpell } from './spellFactory'
@@ -28,6 +28,7 @@ function word(level: number, charge: number): Spell {
 describe('a Totem level is no longer only HP', () => {
   it('buys damage as well as survivability', () => {
     expect(totemBalance.might(10)).toBeGreaterThan(totemBalance.might(1))
+    expect(totemBalance.might(500)).toBeGreaterThan(totemBalance.might(100))
     expect(totemBalance.mitigation(10)).toBeGreaterThan(totemBalance.mitigation(1))
     expect(totemBalance.maxHp(10)).toBeGreaterThan(totemBalance.maxHp(1))
   })
@@ -61,11 +62,12 @@ describe('might decides what a landed blow is worth', () => {
     // it. This plays a real attack through the engine twice and compares
     // what the foe actually lost.
     const world = findWorld('dragon-king-palace')!
-    const tier = dungeonTiers[0]
     const spell = word(5, 6)
 
     const hpLostWith = (might: number) => {
-      const battle = startBattle(spawnEnemy(world, 'seed-1', tier), [spell.id], null)
+      // A foe at the shallow end of the first tier's band, so the fight is
+      // about the multiplier rather than about the foe.
+      const battle = startBattle(spawnEnemy(world, 'seed-1', 3), [spell.id], null)
       const asked = beginPlayerChallenge(battle, spell)
       // The challenge picks its own direction, so the right answer is
       // whichever side of the word it did not show.

@@ -72,6 +72,12 @@ export interface ActiveModifier {
   id: string
   label: string
   weightDeltas: Partial<Record<DungeonEventType, number>>
+  /**
+   * Which end of the tier's level band foes are drawn from while this runs.
+   * -1 is as shallow as the band goes, +1 as deep. Absent on a path that
+   * only changes which *kind* of room turns up.
+   */
+  enemyLevelBias?: number
   /** Move events remaining before this expires. */
   movesRemaining: number
 }
@@ -100,6 +106,8 @@ export interface DirectionChoice {
   label: string
   flavor: string
   weightDeltas: Partial<Record<DungeonEventType, number>>
+  /** See ActiveModifier.enemyLevelBias. */
+  enemyLevelBias?: number
   durationMoves: number
 }
 

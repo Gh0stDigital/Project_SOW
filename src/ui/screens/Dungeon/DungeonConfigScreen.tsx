@@ -7,7 +7,7 @@ import { WorldImage } from '@/ui/components/WorldImage'
 import { playableWorlds, incompleteWorlds, resolveWorld } from '@/systems/worldRegistry'
 import { TotemPanel } from '@/ui/components/TotemPanel'
 import { SlidePanel } from '@/ui/components/SlidePanel'
-import { dungeonTiers, type DungeonTierId } from '@/config/balance'
+import { dungeonTiers, enemyLevelRange, recommendedLevel, type DungeonTierId } from '@/config/balance'
 import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
@@ -226,11 +226,31 @@ export function DungeonConfigScreen() {
               Totem. The old line said "enemy damage ×1.25", which is a
               number from the balance file rather than anything a player can
               act on. */}
-          <p className="faint setup-summary">
-            적 HP {tier.enemyHp} · 적 피해 {tier.enemyDamage} · 보스 HP {tier.bossHp} · 권장 토템 Lv{' '}
-            {tier.recommendedTotemLevel}
-            {totem.level < tier.recommendedTotemLevel ? ` (현재 Lv ${totem.level})` : ''}
-          </p>
+          {/* What is actually down there, and how it compares to you. The
+              level band is the whole difficulty of a run now, so it is the
+              one number worth showing before committing. */}
+          {world && (() => {
+            const [low, high] = enemyLevelRange(world.id, tierId)
+            const fair = recommendedLevel(world.id, tierId)
+            // Where the Totem sits inside the band, rather than a pass/fail
+            // against its midpoint. A level-1 Totem in a 1-10 dungeon is
+            // exactly where it belongs — the draw leans shallow — and being
+            // told on the only screen it can reach that this is "a stretch"
+            // is both discouraging and untrue.
+            const standing =
+              totem.level >= high
+                ? { text: '여유롭습니다', warn: false }
+                : totem.level >= fair
+                  ? { text: '해볼 만합니다', warn: false }
+                  : totem.level >= low
+                    ? { text: '깊은 곳은 위험합니다', warn: false }
+                    : { text: `벅찹니다 — Lv ${low} 이상을 권합니다`, warn: true }
+            return (
+              <p className={`setup-summary${standing.warn ? ' warn' : ' faint'}`}>
+                적 레벨 {low}–{high} · 내 토템 Lv {totem.level} — {standing.text}
+              </p>
+            )
+          })()}
 
           {openSetting === 'world' && (
             <SlidePanel title="세계" onClose={close}>
@@ -309,10 +329,13 @@ export function DungeonConfigScreen() {
                         <>
                           <div className="tier-card-meta faint">{t.description}</div>
                           <div className="tier-card-meta faint">
-                            단어 {t.wordLimit}개 · 보스 ~{t.minEventsBeforeBossEligible}개 사건 · 적 HP {t.enemyHp} ·
-                            적 피해 {t.enemyDamage}
+                            단어 {t.wordLimit}개 · 보스 ~{t.minEventsBeforeBossEligible}개 사건
                           </div>
-                          <div className="tier-card-meta faint">권장 토템 Lv {t.recommendedTotemLevel}</div>
+                          <div className="tier-card-meta faint">
+                            적 레벨 {enemyLevelRange(world?.id ?? '', t.id)[0]}–
+                            {enemyLevelRange(world?.id ?? '', t.id)[1]} · 권장 토템 Lv{' '}
+                            {recommendedLevel(world?.id ?? '', t.id)}
+                          </div>
                         </>
                       ) : (
                         <div className="tier-card-meta faint">

@@ -4,7 +4,10 @@ import type { DirectionChoice, DungeonConfig, DungeonRunState, RewardBundle } fr
 import { emptyRewardBundle, introducedCount } from '@/domain/dungeon'
 import type { BattleState } from '@/domain/battle'
 import type { ItemId } from '@/domain/item'
-import { battleBalance, dungeonTiers, rewardBalance, totemBalance } from '@/config/balance'
+import { battleBalance, dungeonTiers, enemyLevelRange, recommendedLevel, rewardBalance, totemBalance } from '@/config/balance'
+import { attackPower, rollEnemyLevel } from '@/systems/enemyLevel'
+import { powerBalance } from '@/config/balance'
+import { activeLevelBias } from '@/systems/directionModifiers'
 import { mimicBalance, treasureBalance, trapBalance } from '@/config/dungeonEvents'
 import { getItemDef, itemBalance } from '@/config/items'
 import { mimicRevealText } from '@/systems/eventContent'
@@ -43,6 +46,7 @@ import {
   spawnBoss,
   spawnMimic,
   beginPlayerChallenge,
+  outmatchedBy,
   resolvePlayerAttack,
   beginEnemyChallenge,
   resolveDefensePrompt,
@@ -191,6 +195,26 @@ function tierFor(run: DungeonRunState) {
   return dungeonTiers.find((t) => t.id === run.config.tierId)!
 }
 
+/**
+ * What level the next foe of this run rolls.
+ *
+ * The band comes from the world and tier together, and the bias from
+ * whichever path modifiers are still running — so a fork that led somewhere
+ * dangerous keeps mattering for the moves it promised and then stops.
+ */
+function rollLevel(run: DungeonRunState): number {
+  return rollEnemyLevel(
+    enemyLevelRange(run.config.worldId, run.config.tierId),
+    Math.random,
+    activeLevelBias(run.modifiers),
+  )
+}
+
+/** The level a run is pitched at, for anything that has no foe to ask. */
+function depthLevel(run: DungeonRunState): number {
+  return recommendedLevel(run.config.worldId, run.config.tierId)
+}
+
 function totemDeckIds(run: DungeonRunState): string[] {
   return usePersistentStore.getState().spellSets.find((s) => s.id === run.config.totemSpellSetId)?.spellIds ?? []
 }
@@ -241,16 +265,22 @@ function addItemDrop(reward: RewardBundle, chance: number): RewardBundle {
 }
 
 /**
- * The Totem's two combat multipliers, looked up by id at the moment they are
- * needed.
+ * The Totem's combat numbers, looked up at the moment they are needed.
  *
  * The battle engine is pure and takes them as plain numbers; reading them
  * here rather than snapshotting them at the start of the fight means a Totem
  * that levels up mid-dungeon hits harder for the rest of it.
  */
-function mightOf(totemId: string): number {
-  const totem = usePersistentStore.getState().totems.find((t) => t.id === totemId)
-  return totem ? totemBalance.might(totem.level) : 1
+function levelOf(totemId: string): number {
+  return usePersistentStore.getState().totems.find((t) => t.id === totemId)?.level ?? 1
+}
+
+/**
+ * What one word is worth against the foe in front of you: the Totem's own
+ * power, cut by how much of the word its level lets it deliver here.
+ */
+function mightAgainst(totemId: string, enemyLevel: number): number {
+  return attackPower(levelOf(totemId), enemyLevel)
 }
 
 function mitigationOf(totemId: string): number {
@@ -416,7 +446,9 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
 
     const tier = tierFor(run)
     const world = resolveWorld(run.config.worldId)!
-    const boss = spawnBoss(world, `boss-${run.startedAt}`, tier)
+    // A boss does not roll — it stands at the bottom of its band, so the
+    // deepest thing in a dungeon is always its guardian.
+    const boss = spawnBoss(world, `boss-${run.startedAt}`, enemyLevelRange(run.config.worldId, tier.id)[1])
     const bossBattle = startBattle(boss, totemDeckIds(run), run.config.dungeonWordIds)
     const run2 = consumeKey(setState(run, 'BossBattle'))
     set({ run: { ...run2, currentEvent: null, standbyNotice: null }, battle: bossBattle, stage: 'intro', activePanel: null, confirmingBoss: false })
@@ -509,7 +541,9 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
 
     let reward: RewardBundle = {
       money: treasureBalance.magicRoomMoney,
-      totemXp: treasureBalance.magicRoomTotemXp,
+      // Paid at the depth it was solved at, so a puzzle in a deep world is
+      // worth what its surroundings are worth.
+      totemXp: Math.round(treasureBalance.magicRoomTotemXp * powerBalance.scale(depthLevel(run))),
       itemIds: [],
       lines: [`💰 ${treasureBalance.magicRoomMoney}`, `✨ 토템 경험치 ${treasureBalance.magicRoomTotemXp}`],
     }
@@ -567,8 +601,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     }
 
     if (run.state === 'ResolvingEvent' && event?.type === 'battle') {
-      const tier = tierFor(run)
-      const enemy = spawnEnemy(resolveWorld(run.config.worldId)!, event.id, tier)
+      const enemy = spawnEnemy(resolveWorld(run.config.worldId)!, event.id, rollLevel(run))
       set({
         run: setState(run, 'Battle'),
         battle: startBattle(enemy, totemDeckIds(run), null),
@@ -637,7 +670,12 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     if (!spell) return
 
     set({ submitting: true })
-    const outcome = resolvePlayerAttack(battle, spell, text, mightOf(run.config.totemId))
+    const outcome = resolvePlayerAttack(
+      battle,
+      spell,
+      text,
+      mightAgainst(run.config.totemId, battle.enemy.level),
+    )
 
     let finalSpell = outcome.resolution.spell
     let totalXp = outcome.resolution.xpGained
@@ -673,7 +711,16 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     // The run's word record goes in too, so an enemy's volley draws by the
     // same weighting the dungeon's own events use — otherwise a fight would
     // be the one place that keeps handing back words already known.
-    set({ battle: beginEnemyChallenge(battle, dungeonSpells, timerSeconds, Math.random, run.wordStats) })
+    set({
+      battle: beginEnemyChallenge(
+        battle,
+        dungeonSpells,
+        timerSeconds,
+        Math.random,
+        run.wordStats,
+        outmatchedBy(levelOf(run.config.totemId), battle.enemy.level),
+      ),
+    })
   },
 
   tickBattleTimer(deltaSeconds) {
@@ -711,11 +758,12 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     const wasMimic = battle.enemy.kind === 'mimic'
 
     if (battle.isBoss) {
+      const bossXp = totemBalance.xpForBoss(battle.enemy.level)
       let reward: RewardBundle = {
         money: rewardBalance.bossMoneyReward,
-        totemXp: totemBalance.xpPerBossWin,
+        totemXp: bossXp,
         itemIds: [],
-        lines: [`💰 ${rewardBalance.bossMoneyReward}`, `✨ 토템 경험치 ${totemBalance.xpPerBossWin}`],
+        lines: [`💰 ${rewardBalance.bossMoneyReward}`, `✨ 토템 경험치 ${bossXp}`],
       }
       for (let i = 0; i < itemBalance.bossDropCount; i++) reward = addItemDrop(reward, 1)
       creditReward(totemId, reward)
@@ -742,7 +790,11 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       return
     }
 
-    const xp = Math.round(totemBalance.xpPerBattleWin * (wasMimic ? mimicBalance.xpMultiplier : 1))
+    // Paid by the level of the thing you beat, so going deeper is worth the
+    // risk without anything else having to say so.
+    const xp = Math.round(
+      totemBalance.xpForEnemy(battle.enemy.level) * (wasMimic ? mimicBalance.xpMultiplier : 1),
+    )
     const money = Math.round(battleBalance.enemyMoneyReward * (wasMimic ? mimicBalance.moneyMultiplier : 1))
     let reward: RewardBundle = {
       money,
@@ -903,7 +955,13 @@ function resolveTrap(set: SetFn, get: GetFn, run: DungeonRunState, correct: bool
     return
   }
 
-  const damage = Math.round(trapBalance.baseDamage * tier.hazardDamageMultiplier)
+  // Scaled to the depth, like everything else that hurts. A trap was
+  // balanced against a 40 HP Totem; left flat it would take 9 points off a
+  // level-300 Totem carrying 434 of them, which is not a trap, it is
+  // scenery.
+  const damage = Math.round(
+    trapBalance.baseDamage * tier.hazardDamageMultiplier * powerBalance.scale(depthLevel(run)),
+  )
   const defeated = damageTotem(run.config.totemId, damage)
   const totem = usePersistentStore.getState().totems.find((t) => t.id === run.config.totemId)
   set({
@@ -938,8 +996,7 @@ function resolveTreasure(set: SetFn, run: DungeonRunState, correct: boolean) {
 
   // A correctly opened chest may turn out to be a Mimic.
   if (Math.random() < treasureBalance.mimicChance) {
-    const tier = tierFor(run)
-    const mimic = spawnMimic(resolveWorld(run.config.worldId)!, run.currentEvent!.id, tier)
+    const mimic = spawnMimic(resolveWorld(run.config.worldId)!, run.currentEvent!.id, rollLevel(run))
     set({
       run: setOutcomeText(setEventImage(setState(run, 'Battle'), 'treasureMimic', '미믹!'), mimicRevealText),
       battle: startBattle(mimic, totemDeckIds(run), null),

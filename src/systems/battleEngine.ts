@@ -2,7 +2,8 @@ import type { Spell } from '@/domain/spell'
 import type { BattleState, DefenseSequence, EnemyCombatant, PlateauRequirement } from '@/domain/battle'
 import type { Challenge } from '@/domain/challenge'
 import type { WordRunStats } from '@/domain/dungeon'
-import { battleBalance, type DungeonTierDef } from '@/config/balance'
+import { battleBalance } from '@/config/balance'
+import { bossHpForLevel, enemyDamageForLevel, enemyHpForLevel, levelGap } from './enemyLevel'
 import { mimicBalance } from '@/config/dungeonEvents'
 import type { WorldPack } from '@/config/worldManifest'
 import { pickSlot, bossSlot, nameFromSlot } from './worldRegistry'
@@ -38,16 +39,24 @@ export function enemyNameFor(slot: string | null): string {
   return nameFromSlot(slot)
 }
 
-export function spawnEnemy(world: WorldPack, seed: string, tier: DungeonTierDef): EnemyCombatant {
-  const hp = tier.enemyHp
+/**
+ * An ordinary foe at the level it rolled.
+ *
+ * The tier no longer decides how tough this is — the level does. Two foes in
+ * the same dungeon can be a long way apart, which is what makes a fork in
+ * the path worth taking and an item worth spending.
+ */
+export function spawnEnemy(world: WorldPack, seed: string, level: number): EnemyCombatant {
+  const hp = enemyHpForLevel(level)
   const art = enemyArtFor(world, seed)
   return {
     kind: 'enemy',
     name: enemyNameFor(art),
     image: { folder: 'enemies', slot: art ?? '' },
+    level,
     maxHp: hp,
     currentHp: hp,
-    damage: tier.enemyDamage,
+    damage: enemyDamageForLevel(level),
   }
 }
 
@@ -55,8 +64,8 @@ export function spawnEnemy(world: WorldPack, seed: string, tier: DungeonTierDef)
  * A Mimic: an ordinary foe's shape, but tougher, angrier and worth more.
  * Spawned only from an opened treasure chest.
  */
-export function spawnMimic(world: WorldPack, seed: string, tier: DungeonTierDef): EnemyCombatant {
-  const base = spawnEnemy(world, seed, tier)
+export function spawnMimic(world: WorldPack, seed: string, level: number): EnemyCombatant {
+  const base = spawnEnemy(world, seed, level)
   const hp = Math.round(base.maxHp * mimicBalance.hpMultiplier)
   return {
     ...base,
@@ -70,26 +79,43 @@ export function spawnMimic(world: WorldPack, seed: string, tier: DungeonTierDef)
 }
 
 /**
- * The tier's boss.
+ * The tier's boss, at the top of its band.
  *
- * Its HP is the tier's own number and nothing else. It used to be a base
- * plus four per word in the dungeon pool, which made the deepest boss tough
- * because the run had read fifty words rather than because it was the
- * deepest boss — and the barrier already charges one right answer per pool
- * word, so the pool was being billed for twice.
+ * Its HP used to be a base plus four per word in the dungeon pool, which
+ * made the deepest boss tough because the run had read fifty words rather
+ * than because it was the deepest boss — and the barrier already charges one
+ * right answer per pool word, so the pool was billed twice. It is now
+ * several ordinary foes' worth of HP at its own level, and unlike its
+ * underlings it does not roll: a boss is always the strongest thing down
+ * there.
  */
-export function spawnBoss(world: WorldPack, seed: string, tier: DungeonTierDef): EnemyCombatant {
-  const hp = tier.bossHp
+export function spawnBoss(world: WorldPack, seed: string, level: number): EnemyCombatant {
+  const hp = bossHpForLevel(level)
   // A world may ship its own boss art; one that doesn't borrows an enemy.
   const boss = bossSlot(world, seed)
   return {
     kind: 'boss',
     name: '보스 수호자',
     image: boss ? { folder: boss.folder, slot: boss.slot } : { folder: 'enemies', slot: '' },
+    level,
     maxHp: hp,
     currentHp: hp,
-    damage: Math.round(tier.enemyDamage * battleBalance.bossDamageMultiplier),
+    damage: Math.round(enemyDamageForLevel(level) * battleBalance.bossDamageMultiplier),
   }
+}
+
+/**
+ * How far out of its depth a Totem is against this foe, from 0 (an even or
+ * favourable fight) to 1 (the foe is twice its level or worse).
+ *
+ * The second cost of being outmatched, and the one that keeps the answer to
+ * "this thing is too strong for me" as *know the words better* rather than
+ * *come back with a bigger number*. A foe above your level asks for more
+ * words in one attack, and asks more often for the harder direction —
+ * produce the Korean rather than recognise it.
+ */
+export function outmatchedBy(totemLevel: number, enemyLevel: number): number {
+  return Math.max(0, Math.min(1, levelGap(totemLevel, enemyLevel) - 1))
 }
 
 export function startBattle(
@@ -259,12 +285,18 @@ export function beginEnemyChallenge(
    * is what a caller without a run in hand should get.
    */
   wordStats: Record<string, WordRunStats> = {},
+  /**
+   * How far out of its depth the defending Totem is — outmatchedBy(). 0 for
+   * an even fight. A foe above your level asks for more at once and asks for
+   * it the harder way round.
+   */
+  outmatched = 0,
 ): BattleState {
   if (dungeonSpells.length === 0) {
     return { ...state, phase: 'enemy_intro', activeChallenge: null, defense: null, timer: null }
   }
 
-  const count = defensePromptCount(state.isBoss, dungeonSpells.length, rng)
+  const count = defensePromptCount(state.isBoss, dungeonSpells.length, rng, outmatched)
   const challenges: Challenge[] = []
   const used = new Set<string>()
   for (let i = 0; i < count; i++) {
@@ -283,7 +315,13 @@ export function beginEnemyChallenge(
       spell = draw()
     }
     used.add(spell.id)
-    challenges.push(generateChallenge(spell, 'defense', 'kor_to_eng'))
+    // Defending normally asks you to recognise the Korean. Something above
+    // your level asks you to produce it instead, which is the same word and
+    // a harder question — the cost of being outmatched stays a question
+    // about the language rather than a bigger number on its side.
+    const direction =
+      rng() < outmatched * battleBalance.outmatchedHardDirectionChance ? 'eng_to_kor' : 'kor_to_eng'
+    challenges.push(generateChallenge(spell, 'defense', direction))
   }
 
   const defense: DefenseSequence = { challenges, index: 0, results: [] }
@@ -297,12 +335,22 @@ export function beginEnemyChallenge(
   }
 }
 
-/** How many words this attack demands. Bosses lean harder on multi-word. */
-export function defensePromptCount(isBoss: boolean, poolSize: number, rng: () => number): number {
-  const chance = isBoss ? battleBalance.bossMultiPromptChance : battleBalance.multiPromptChance
+/**
+ * How many words this attack demands. Bosses lean harder on multi-word, and
+ * so does anything above your level.
+ */
+export function defensePromptCount(
+  isBoss: boolean,
+  poolSize: number,
+  rng: () => number,
+  outmatched = 0,
+): number {
+  const base = isBoss ? battleBalance.bossMultiPromptChance : battleBalance.multiPromptChance
+  const chance = Math.min(1, base + outmatched * battleBalance.outmatchedMultiPromptBonus)
   const max = Math.min(
     poolSize,
-    isBoss ? battleBalance.bossMaxDefensePrompts : battleBalance.maxDefensePrompts,
+    (isBoss ? battleBalance.bossMaxDefensePrompts : battleBalance.maxDefensePrompts) +
+      (outmatched >= battleBalance.outmatchedExtraPromptAt ? 1 : 0),
   )
   if (max <= battleBalance.minDefensePrompts) return battleBalance.minDefensePrompts
   if (rng() >= chance) return battleBalance.minDefensePrompts
