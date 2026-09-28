@@ -17,6 +17,8 @@ function legacySpell(korean: string, english: string): Spell {
     notes: 'an old note',
     altKorean: [],
     altEnglish: ['alt meaning'],
+    // A save from when a word carried a level, an experience bar and a
+    // per-word charge ceiling. All three collapsed into the slot meter.
     level: 4,
     experience: 12,
     charge: 3,
@@ -55,8 +57,8 @@ describe('old-data compatibility', () => {
     expect(after.english).toBe('school')
     expect(after.notes).toBe('an old note')
     expect(after.altEnglish).toEqual(['alt meaning'])
-    expect(after.level).toBe(4)
-    expect(after.experience).toBe(12)
+    // The level was what decided damage, so it is what the slots come from.
+    expect(after.charge).toBe(4)
     expect(after.timesEncountered).toBe(9)
     expect(after.correctAttacks).toBe(4)
     expect(after.createdAt).toBe(before.createdAt)

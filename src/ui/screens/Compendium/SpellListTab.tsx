@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { usePersistentStore } from '@/state/persistentStore'
 import { Bar } from '@/ui/components/Bar'
+import { spellBalance } from '@/config/balance'
 import { AssetImage } from '@/ui/components/AssetImage'
 import { assetKeyOrFlavor } from '@/config/assets'
 import { SpellEditorForm } from './SpellEditorForm'
@@ -87,9 +88,9 @@ export function SpellListTab() {
                   something the player notices mid-fight. */}
               {!spell.sampleSentence?.trim() && <div className="needs-example">예문 없음</div>}
               <div className="row" style={{ marginTop: 4 }}>
-                <span className="faint">Lv {spell.level}</span>
+                <span className="faint">⚡{spell.charge}/{spellBalance.chargeSlots}</span>
                 <div style={{ flex: 1 }}>
-                  <Bar value={spell.charge} max={spell.maxCharge} kind="charge" thin />
+                  <Bar value={spell.charge} max={spellBalance.chargeSlots} kind="charge" thin />
                 </div>
               </div>
             </div>

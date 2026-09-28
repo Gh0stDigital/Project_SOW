@@ -7,11 +7,11 @@ import { spellAccuracy, type Spell } from '@/domain/spell'
 import { sortSpells, filterSpellsBySet, type RecordsSortKey } from '@/systems/records'
 import { definitionsOf } from '@/domain/spell'
 import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
+import { spellBalance } from '@/config/balance'
 import { ElementIcon } from '@/ui/components/ElementIcon'
 import { UiIcon } from '@/ui/components/UiIcon'
 
 const sortOptions: { key: RecordsSortKey; label: string }[] = [
-  { key: 'level', label: '레벨' },
   { key: 'charge', label: '충전' },
   { key: 'accuracy', label: '정확도' },
   { key: 'mostPracticed', label: '가장 많이 연습한' },
@@ -73,7 +73,7 @@ export function RecordsScreen() {
                 <ElementIcon element={elementDefFor(spell.wordType)} size={13} />{' '}
                 {wordTypeDefs[spell.wordType].shortLabel}
               </span>
-              <span className="faint">Lv {spell.level}</span>
+              <span className="faint">⚡{spell.charge}/{spellBalance.chargeSlots}</span>
             </div>
             <p className="muted" style={{ fontSize: 13 }}>{definitionsOf(spell).join(' · ')}</p>
 
@@ -89,9 +89,9 @@ export function RecordsScreen() {
                 충전
               </span>
               <div style={{ flex: 1 }}>
-                <Bar value={spell.charge} max={spell.maxCharge} kind="charge" thin />
+                <Bar value={spell.charge} max={spellBalance.chargeSlots} kind="charge" thin />
               </div>
-              <span className="faint">{spell.charge}/{spell.maxCharge}</span>
+              <span className="faint">{spell.charge}/{spellBalance.chargeSlots}</span>
             </div>
 
             <div className="stats-grid">
@@ -102,10 +102,6 @@ export function RecordsScreen() {
               <div>
                 <b>{spell.timesEncountered}</b>
                 조우
-              </div>
-              <div>
-                <b>{spell.experience}</b>
-                경험치
               </div>
               <div>
                 <b>{spell.correctAnswers}</b>

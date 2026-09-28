@@ -21,6 +21,8 @@ const menuItems = [
 ]
 
 export function MainMenuScreen() {
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
   const goTo = useUiStore((s) => s.goTo)
   const returnToTitle = useUiStore((s) => s.returnToTitle)
   const totem = usePersistentStore((s) => s.totems.find((t) => t.id === s.activeTotemId))
@@ -115,7 +117,7 @@ export function MainMenuScreen() {
               </div>
             </div>
             <div className="totem-banner-foot faint">
-              <UiIcon name="money" size={13} /> {totem.money} · 아는 주문 {spellCount}개
+              <UiIcon name="money" size={13} /> {money} · 아는 주문 {spellCount}개
             </div>
           </div>
         </button>

@@ -26,14 +26,16 @@ export interface RestQuote {
   blockedReason: 'full_hp' | 'too_expensive' | null
 }
 
-export function quoteRest(totem: Totem, usesSoFar: number): RestQuote {
+export function quoteRest(totem: Totem, money: number, usesSoFar: number): RestQuote {
   const price = restPriceFor(usesSoFar)
   const nextPrice = restPriceFor(usesSoFar + 1)
   const missing = Math.max(0, totem.maxHp - totem.currentHp)
   // Never heal past max — the quote shows what the player would truly get.
   const healAmount = Math.min(missing, Math.round(totem.maxHp * restBalance.healFraction))
   const needsHealing = missing > 0
-  const canAfford = totem.money >= price
+  // Money is the player's, not the Totem's, so it is passed in rather than
+  // read off whoever happens to be carrying the healing.
+  const canAfford = money >= price
 
   return {
     price,
@@ -45,8 +47,8 @@ export function quoteRest(totem: Totem, usesSoFar: number): RestQuote {
   }
 }
 
-export function canRest(totem: Totem, usesSoFar: number): boolean {
-  return quoteRest(totem, usesSoFar).blockedReason === null
+export function canRest(totem: Totem, money: number, usesSoFar: number): boolean {
+  return quoteRest(totem, money, usesSoFar).blockedReason === null
 }
 
 export interface RestResult {
@@ -59,15 +61,14 @@ export interface RestResult {
  * Applies one rest. Returns the Totem unchanged (and spends nothing) if the
  * purchase isn't allowed, so a double-tap can never double-charge.
  */
-export function applyRest(totem: Totem, usesSoFar: number): RestResult | null {
-  const quote = quoteRest(totem, usesSoFar)
+export function applyRest(totem: Totem, money: number, usesSoFar: number): RestResult | null {
+  const quote = quoteRest(totem, money, usesSoFar)
   if (quote.blockedReason !== null) return null
   return {
-    totem: {
-      ...totem,
-      money: totem.money - quote.price,
-      currentHp: Math.min(totem.maxHp, totem.currentHp + quote.healAmount),
-    },
+    // Only the healing happens here. The purse is the store's, so the caller
+    // spends `spent` from it rather than this reaching into the player's
+    // money from inside a pure function about one Totem's HP.
+    totem: { ...totem, currentHp: Math.min(totem.maxHp, totem.currentHp + quote.healAmount) },
     spent: quote.price,
     healed: quote.healAmount,
   }

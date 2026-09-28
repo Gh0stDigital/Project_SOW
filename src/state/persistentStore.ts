@@ -52,6 +52,16 @@ export interface PersistedData {
   spellSets: SpellSet[]
   totems: Totem[]
   activeTotemId: string | null
+  /**
+   * The player's purse.
+   *
+   * It used to live on the Totem, which made it part of a character rather
+   * than part of the save: switching Totem switched wallets, and a Totem
+   * destroyed for good took its savings with it. Money is the player's — it
+   * buys rests now and will buy crafting later, neither of which belongs to
+   * one character.
+   */
+  money: number
   settings: GameSettings
   lastDungeonSelection: DungeonSelectionDraft
   inventory: InventoryEntry[]
@@ -70,6 +80,7 @@ function defaultData(): PersistedData {
     spellSets: [],
     totems: [totem],
     activeTotemId: totem.id,
+    money: 0,
     settings: defaultSettings,
     lastDungeonSelection: { totemSpellSetId: null, dungeonSpellSetId: null, tierId: 'tier10' },
     inventory: itemBalance.startingInventory.map((e) => ({ ...e })),
@@ -116,6 +127,11 @@ function loadInitial(): PersistedData {
       stats: { ...t.stats, dungeonsFailed: t.stats?.dungeonsFailed ?? 0 },
     })),
     activeTotemId: saved.activeTotemId ?? defaults.activeTotemId,
+    // A save written while money lived on each Totem has it spread across
+    // them; the purse is the total, so nobody loses what they had earned.
+    money:
+      saved.money ??
+      (saved.totems ?? []).reduce((sum, t) => sum + ((t as unknown as { money?: number }).money ?? 0), 0),
     settings: { ...defaults.settings, ...saved.settings },
     lastDungeonSelection: { ...defaults.lastDungeonSelection, ...saved.lastDungeonSelection },
     inventory: saved.inventory ?? defaults.inventory,
@@ -160,6 +176,10 @@ export interface PersistentStore extends PersistedData {
 
   grantItem(itemId: ItemId, quantity?: number): void
   consumeItem(itemId: ItemId): void
+
+  addMoney(amount: number): void
+  /** Spends up to `amount`, never below zero. Returns what was actually spent. */
+  spendMoney(amount: number): number
 }
 
 export const usePersistentStore = create<PersistentStore>()((set, get) => ({
@@ -275,6 +295,16 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
     set((state) => ({ inventory: consumeItem(state.inventory, itemId) }))
   },
 
+  addMoney(amount) {
+    set((state) => ({ money: Math.max(0, state.money + Math.round(amount)) }))
+  },
+  spendMoney(amount) {
+    const want = Math.max(0, Math.round(amount))
+    const spent = Math.min(want, get().money)
+    if (spent > 0) set((state) => ({ money: state.money - spent }))
+    return spent
+  },
+
   startNewGame() {
     // Everything the save holds, back to how a first launch finds it. The
     // subscription below then writes it out, so the old game is gone from
@@ -298,6 +328,17 @@ export function autosaveTime(): Date | null {
 
 // Persist on every change. Simple + adequate for prototype scale.
 usePersistentStore.subscribe((state) => {
-  const { spells, spellSets, totems, activeTotemId, settings, lastDungeonSelection, inventory, seenContent } = state
-  persistence.save({ spells, spellSets, totems, activeTotemId, settings, lastDungeonSelection, inventory, seenContent })
+  const { spells, spellSets, totems, activeTotemId, money, settings, lastDungeonSelection, inventory, seenContent } =
+    state
+  persistence.save({
+    spells,
+    spellSets,
+    totems,
+    activeTotemId,
+    money,
+    settings,
+    lastDungeonSelection,
+    inventory,
+    seenContent,
+  })
 })

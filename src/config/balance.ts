@@ -13,56 +13,38 @@
 
 export const spellBalance = {
   /**
-   * The ceiling on a word's level.
+   * How many slots of charge a word can hold.
    *
-   * A level here is how far a word is charged, not how far it has grown. It
-   * climbs on a right answer, falls on a wrong one, and once it reaches the
-   * cap it stays there putting out its full effect — there is no rank beyond
-   * this one to grind towards.
+   * A word's power is a meter, not a rank. One right answer fills a slot,
+   * one wrong answer empties one, and that is the whole rule — there is no
+   * experience accumulating underneath and no level that only ever goes up.
    *
-   * It used to be 20, which made the word itself the game's power curve: a
-   * word answered 90 times hit for 38 and one answered 333 times hit for 68,
-   * against enemies who have between 36 and 42 HP whatever the tier. Past
-   * roughly level 10 every ordinary fight was one hit, so the thing that
-   * decided how a battle went was how long that word had been studied. 7
-   * puts the top of the range next to the enemies who have to absorb it.
+   * It used to be both at once: a level driven by an experience bar, plus a
+   * separate charge meter whose size depended on that level. Two numbers
+   * that both meant "how well do you know this", one of which could never
+   * fall. A word answered wrong three times still read as level 6, and the
+   * meter the player watched was not the thing the game was scoring.
    */
-  maxLevel: 7,
-  /** XP required to go from level N to N+1 = base + perLevel * N. */
-  xpToNextLevel(level: number): number {
-    return 20 + level * 12
-  },
-  /** Charge cap grows with level. */
-  maxCharge(level: number): number {
-    return 5 + (level - 1) * 2
-  },
-  /** Charge gained on a correct answer. */
+  chargeSlots: 7,
+  /** Slots gained on a correct answer. */
   chargeGainOnCorrect: 1,
-  /** Charge lost on an incorrect answer (never below 0). */
-  chargeLossOnIncorrect: 2,
-  /** Base damage a spell can deal, before charge multiplier. */
-  baseDamage(level: number): number {
-    return 8 + level * 3
-  },
+  /** Slots lost on an incorrect answer (never below empty). */
+  chargeLossOnIncorrect: 1,
   /**
-   * Charge multiplier applied to base damage. 0 charge = 50% damage,
-   * full charge = 150% damage. Linear in between.
+   * Damage a word deals at a given charge, before the Totem's power.
+   *
+   * Linear in the slots, so the meter reads as the damage: each slot is
+   * worth five more. Empty still lands for something — knowing a word badly
+   * is not the same as not having it.
    */
-  chargeDamageMultiplier(charge: number, maxCharge: number): number {
-    const ratio = maxCharge > 0 ? charge / maxCharge : 0
-    return 0.5 + ratio
+  damageForCharge(charge: number): number {
+    const slots = Math.max(0, Math.min(spellBalance.chargeSlots, Math.round(charge)))
+    return 8 + slots * 5
   },
-  /** XP granted for a correct general-vocabulary challenge. */
-  xpPerCorrectChallenge: 6,
-  /** XP granted for a correct attack in battle. */
-  xpPerCorrectAttack: 8,
-  /** XP granted for a correct defense in battle. */
-  xpPerCorrectDefense: 8,
-  /** XP granted for a correct Plateau-clearing answer (on top of the above). */
-  xpPerPlateauClear: 4,
-  /** A Spell reaching this level during a run counts as "newly mastered" for results reporting. */
-  masteryLevel: 3,
+  /** A word filling its last slot counts as "newly mastered" for the run report. */
+  masteredAt: 7,
 }
+
 
 // ---------------------------------------------------------------------------
 // The power curve
@@ -99,7 +81,7 @@ export const powerBalance = {
     return Math.pow((l + powerBalance.soften) / (1 + powerBalance.soften), 0.75)
   },
   /** HP a level-1 foe holds; every other foe is this times scale(). */
-  enemyHpBase: 60,
+  enemyHpBase: 90,
   /** Damage a level-1 foe deals. */
   enemyDamageBase: 7,
   /** HP a level-1 Totem holds. */
@@ -374,6 +356,29 @@ export const battleBalance = {
   defaultEnemyTimerSeconds: 12,
   /** Damage dealt to the player when correctly defending (heavily reduced, not zero). */
   defendedDamageFraction: 0.15,
+  /**
+   * The counter window, as a share of the answer clock.
+   *
+   * Answer correctly with more than half the time still on the clock and the
+   * blow is turned back: no damage taken, and the foe takes a hit of its
+   * own. Answer correctly after that and it is an ordinary block — reduced
+   * damage, as before. Wrong, or out of time, and it lands in full.
+   *
+   * Half is deliberately generous. The point is to reward knowing a word
+   * outright rather than reconstructing it, and someone who knows a word
+   * answers it in a couple of seconds out of twelve; someone who is working
+   * it out uses most of the clock. The window separates those two without
+   * asking anyone to hurry a word they know.
+   */
+  counterWindow: 0.5,
+  /**
+   * What a counter hits for, as a share of an ordinary attack with that word.
+   *
+   * Less than a full attack, because a counter costs no turn — it happens
+   * during the foe's own. Worth enough that a well-known deck turns a long
+   * defensive stretch into progress rather than merely survival.
+   */
+  counterDamageFraction: 0.6,
   /** A boss hits this much harder than an ordinary foe of the same tier. */
   bossDamageMultiplier: 1.4,
 

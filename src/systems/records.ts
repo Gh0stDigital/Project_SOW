@@ -3,7 +3,6 @@ import { spellAccuracy } from '@/domain/spell'
 import type { SpellSet } from '@/domain/spellSet'
 
 export type RecordsSortKey =
-  | 'level'
   | 'charge'
   | 'accuracy'
   | 'mostPracticed'
@@ -14,10 +13,10 @@ export type RecordsSortKey =
 export function sortSpells(spells: Spell[], key: RecordsSortKey): Spell[] {
   const arr = [...spells]
   switch (key) {
-    case 'level':
-      return arr.sort((a, b) => b.level - a.level || b.experience - a.experience)
+    // There used to be a separate 'level' sort as well — a one-way rank
+    // that disagreed with this meter. Charge is the only measure now.
     case 'charge':
-      return arr.sort((a, b) => b.charge / Math.max(1, b.maxCharge) - a.charge / Math.max(1, a.maxCharge))
+      return arr.sort((a, b) => b.charge - a.charge || spellAccuracy(b) - spellAccuracy(a))
     case 'accuracy':
       return arr.sort((a, b) => spellAccuracy(b) - spellAccuracy(a))
     case 'mostPracticed':

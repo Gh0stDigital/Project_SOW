@@ -40,13 +40,10 @@ const WORLD = 'dragon-king-palace'
  * Uses the real damage and power functions rather than restating them, so a
  * change to either shows up here as a change in pacing.
  */
-function answersToKill(enemyLevel: number, totemLevel: number, wordLevel: number, chargeFraction = 0.5): number {
-  const maxCharge = spellBalance.maxCharge(wordLevel)
+function answersToKill(enemyLevel: number, totemLevel: number, slots: number): number {
   const hand = [0, 1, 2].map(() => ({
     ...createSpell({ korean: '검토', english: 'review' }),
-    level: wordLevel,
-    maxCharge,
-    charge: Math.round(maxCharge * chargeFraction),
+    charge: Math.max(0, Math.min(spellBalance.chargeSlots, slots)),
   }))
   const power = attackPower(totemLevel, enemyLevel)
   const hp = enemyHpForLevel(enemyLevel)
@@ -54,13 +51,20 @@ function answersToKill(enemyLevel: number, totemLevel: number, wordLevel: number
   for (let answered = 1; answered <= 4000; answered++) {
     const card = hand[(answered - 1) % hand.length]
     dealt += damageForSpell(card, power)
-    card.charge = Math.min(maxCharge, card.charge + 1)
+    // Every right answer fills a slot, which is what makes a fight speed up
+    // as it goes rather than grinding at a fixed rate.
+    card.charge = Math.min(spellBalance.chargeSlots, card.charge + 1)
     if (dealt >= hp) return answered
   }
   return Infinity
 }
 
-/** The word level a player at this depth plausibly carries. */
+/**
+ * How well charged a player at this depth plausibly has their words.
+ *
+ * A deeper world is not a different set of words — it is the same deck,
+ * better known.
+ */
 const wordAt = (level: number) => (level < 10 ? 2 : level < 50 ? 3 : level < 150 ? 4 : level < 300 ? 5 : 7)
 
 const MATCHED_LEVELS = [1, 5, 10, 25, 50, 100, 150, 300, 500]
@@ -88,17 +92,20 @@ describe('a fight between equals is the same fight at every depth', () => {
     // holds foes up to level 10. If this stops being winnable there is
     // nowhere for a new player to start.
     for (const enemyLevel of [1, 3, 5]) {
-      const answers = answersToKill(enemyLevel, 1, 1, 0)
+      const answers = answersToKill(enemyLevel, 1, 0)
       expect(answers, `a level-${enemyLevel} foe took ${answers} answers`).toBeLessThanOrEqual(12)
     }
   })
 })
 
 describe('the numbers climb, which is what levelling is for', () => {
-  it('grows a maxed word\'s damage by more than twentyfold across the range', () => {
+  it('grows a maxed word\'s damage many times over across the range', () => {
+    // The word contributes the same at every depth now — slots are slots —
+    // so all of this growth is the Totem's, which is the point: the number
+    // the player watches climb is the one they earned.
     const maxed = (level: number) =>
-      Math.round(spellBalance.baseDamage(wordAt(level)) * 1.5 * powerBalance.scale(level))
-    expect(maxed(500)).toBeGreaterThan(maxed(1) * 20)
+      Math.round(spellBalance.damageForCharge(spellBalance.chargeSlots) * powerBalance.scale(level))
+    expect(maxed(500)).toBeGreaterThan(maxed(1) * 15)
     expect(maxed(100)).toBeGreaterThan(maxed(10))
   })
 
@@ -124,8 +131,8 @@ describe('the numbers climb, which is what levelling is for', () => {
 describe('charge is still the biggest thing in any single exchange', () => {
   it('outweighs what a level of Totem buys', () => {
     for (const level of [1, 50, 300]) {
-      const cold = answersToKill(level, level, wordAt(level), 0)
-      const maxed = answersToKill(level, level, wordAt(level), 1)
+      const cold = answersToKill(level, level, 0)
+      const maxed = answersToKill(level, level, spellBalance.chargeSlots)
       expect(maxed, `level ${level}`).toBeLessThan(cold)
       expect(cold / maxed, `level ${level}`).toBeGreaterThanOrEqual(2)
     }

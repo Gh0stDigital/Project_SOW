@@ -57,10 +57,15 @@ export interface Spell {
   altKorean: string[]
   altEnglish: string[]
 
-  level: number
-  experience: number
+  /**
+   * How many slots of charge this word holds, 0..spellBalance.chargeSlots.
+   *
+   * The only measure of how well the word is known. A right answer fills a
+   * slot, a wrong one empties one. There is no level and no experience bar
+   * underneath: those were a second, one-way score that disagreed with this
+   * one, so a word answered wrong all evening still read as highly ranked.
+   */
   charge: number
-  maxCharge: number
 
   timesEncountered: number
   correctAnswers: number

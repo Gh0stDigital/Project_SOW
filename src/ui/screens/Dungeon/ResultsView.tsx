@@ -33,7 +33,7 @@ export function ResultsView() {
 
   const glyph = report.outcome === 'victory' ? '🏆' : report.outcome === 'abandoned' ? '🚪' : '💀'
   const attempted = report.words.filter((w) => w.correct + w.incorrect > 0).length
-  const haulCount = report.itemsCollected.length + report.levelUps.length + report.masteredWords.length
+  const haulCount = report.itemsCollected.length + report.chargeGains.length + report.masteredWords.length
 
   return (
     <div className="screen results-screen">
@@ -171,10 +171,10 @@ function HaulPanel({ report, onClose }: { report: RunReport; onClose: () => void
         </section>
       )}
 
-      {report.levelUps.length > 0 && (
+      {report.chargeGains.length > 0 && (
         <section>
-          <h3>주문 레벨업</h3>
-          <p>{report.levelUps.map((l) => `${l.korean} ${l.from}→${l.to}`).join(' · ')}</p>
+          <h3>충전된 단어</h3>
+          <p>{report.chargeGains.map((g) => `${g.korean} ⚡${g.from}→${g.to}`).join(' · ')}</p>
         </section>
       )}
 
@@ -188,10 +188,6 @@ function HaulPanel({ report, onClose }: { report: RunReport; onClose: () => void
       <section>
         <h3>합계</h3>
         <div className="stats-grid">
-          <div className="stat-tile">
-            <div className="faint">주문 경험치</div>
-            <div className="value">{report.spellXpEarned}</div>
-          </div>
           <div className="stat-tile">
             <div className="faint">턴 수</div>
             <div className="value">{report.turns}</div>

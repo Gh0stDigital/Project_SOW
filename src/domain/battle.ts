@@ -46,18 +46,30 @@ export interface TimerState {
 }
 
 /**
+ * How one defense prompt went.
+ *
+ * Not a boolean any more, because being right is no longer the whole story:
+ * how fast you were right decides whether the blow is turned back on the
+ * attacker or merely softened.
+ *
+ * - `countered` — right, and inside the counter window (answered using less
+ *   than half the time allowed). No damage taken, and the foe takes a hit.
+ * - `blocked` — right, but after the window had closed. Reduced damage.
+ * - `hit` — wrong, or the clock ran out. Full damage.
+ */
+export type DefenseOutcome = 'countered' | 'blocked' | 'hit'
+
+/**
  * One enemy attack, which may demand several defense prompts in sequence.
- * Damage scales with how many were answered correctly — see
- * battleEngine.defenseDamage(). A fully-correct defense still lets a
- * sliver through (battleBalance.defendedDamageFraction), which is the
- * partial-defense behavior the game already had for single prompts.
+ * Each prompt carries its own share of the attack's damage, settled by how
+ * that prompt went — see battleEngine.defenseDamage().
  */
 export interface DefenseSequence {
   challenges: Challenge[]
   /** Index of the prompt currently being answered. */
   index: number
   /** One entry per answered prompt, in order. */
-  results: boolean[]
+  results: DefenseOutcome[]
 }
 
 export function defenseSequenceComplete(seq: DefenseSequence): boolean {

@@ -1,5 +1,4 @@
 import type { Spell } from '@/domain/spell'
-import { spellBalance } from '@/config/balance'
 import { showsConjugations, type WordType } from '@/config/wordTypes'
 import { makeId } from './idGen'
 
@@ -104,14 +103,11 @@ export function normalizeContent(input: SpellContentInput): {
 
 export function createSpell(input: NewSpellInput): Spell {
   const now = new Date().toISOString()
-  const level = 1
   return {
     id: makeId('spell'),
     ...normalizeContent(input),
-    level,
-    experience: 0,
+    // A new word arrives empty. Every slot in it is earned.
     charge: 0,
-    maxCharge: spellBalance.maxCharge(level),
     timesEncountered: 0,
     correctAnswers: 0,
     incorrectAnswers: 0,

@@ -6,6 +6,7 @@ import { ElementIcon } from '@/ui/components/ElementIcon'
 import { usePersistentStore } from '@/state/persistentStore'
 import { SlidePanel } from '@/ui/components/SlidePanel'
 import { Bar } from '@/ui/components/Bar'
+import { spellBalance } from '@/config/balance'
 
 interface WordInfoPanelProps {
   run: DungeonRunState
@@ -53,9 +54,9 @@ export function WordInfoPanel({ run, battle, onClose }: WordInfoPanelProps) {
                 {spell!.korean} <span className="faint">— {definitionsOf(spell!).join(', ')}</span>
               </span>
               <ElementIcon element={elementDefFor(spell!.wordType)} size={16} />
-              <span className="faint">Lv{spell!.level}</span>
+              <span className="faint">⚡{spell!.charge}</span>
               <div style={{ width: 40 }}>
-                <Bar value={spell!.charge} max={spell!.maxCharge} kind="charge" thin />
+                <Bar value={spell!.charge} max={spellBalance.chargeSlots} kind="charge" thin />
               </div>
             </div>
           ))}
@@ -71,9 +72,9 @@ export function WordInfoPanel({ run, battle, onClose }: WordInfoPanelProps) {
                 {spell!.korean} <span className="faint">— {definitionsOf(spell!).join(', ')}</span>
               </span>
               <ElementIcon element={elementDefFor(spell!.wordType)} size={16} />
-              <span className="faint">Lv{spell!.level}</span>
+              <span className="faint">⚡{spell!.charge}</span>
               <div style={{ width: 40 }}>
-                <Bar value={spell!.charge} max={spell!.maxCharge} kind="charge" thin />
+                <Bar value={spell!.charge} max={spellBalance.chargeSlots} kind="charge" thin />
               </div>
             </div>
           ))}

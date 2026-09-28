@@ -19,7 +19,6 @@ export interface Totem {
   experience: number
   currentHp: number
   maxHp: number
-  money: number
 
   /**
    * Run-level lives. A dungeon defeat costs exactly one; at 0 the Totem is

@@ -2,6 +2,7 @@ import type { Spell } from '@/domain/spell'
 import { damageForSpell } from '@/systems/spellProgression'
 import { assetKeyOrFlavor } from '@/config/assets'
 import { elementDefFor } from '@/config/wordTypes'
+import { spellBalance } from '@/config/balance'
 import { AssetImage } from './AssetImage'
 import { ElementIcon } from './ElementIcon'
 import { Bar } from './Bar'
@@ -68,11 +69,14 @@ export function SpellCard({ spell, selected, disabled, avatar, barrierCleared, m
       )}
       <div className="meta">
         <span title={element.label}>
-          <ElementIcon element={element} size={14} /> Lv {spell.level}
+          {/* The charge meter is the whole of how well this word is known
+              now — there is no separate rank sitting above it that only ever
+              climbed. */}
+          <ElementIcon element={element} size={14} /> ⚡{spell.charge}/{spellBalance.chargeSlots}
         </span>
         <span>피해 {damageForSpell(spell, might)}</span>
       </div>
-      <Bar value={spell.charge} max={spell.maxCharge} kind="charge" thin />
+      <Bar value={spell.charge} max={spellBalance.chargeSlots} kind="charge" thin />
     </div>
   )
 }

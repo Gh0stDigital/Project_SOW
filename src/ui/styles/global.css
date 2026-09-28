@@ -3463,6 +3463,31 @@ button.totem-hero-frame {
   color: var(--accent-gold);
 }
 
+/* The counter window, drawn on the answer clock.
+   Answer a defence while the bar is still past this mark and the blow is
+   turned back instead of merely softened — which is worth nothing if the
+   player cannot see where the line is. */
+.counter-window-mark {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--accent-gold);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.counter-window-tag {
+  font-size: 11px;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+
+.timer-row.counter-live .counter-window-tag {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
 .enemy-level {
   font-variant-numeric: tabular-nums;
   color: var(--text-secondary);

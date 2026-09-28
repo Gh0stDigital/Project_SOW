@@ -2,7 +2,7 @@ import type { Spell } from '@/domain/spell'
 import { definitionsOf } from '@/domain/spell'
 import { spellBalance } from '@/config/balance'
 import { createSpell, normalizeContent, type NewSpellInput, type SpellContentInput } from './spellFactory'
-import { addExperience, applyChargeDelta, type LevelUpResult } from './spellProgression'
+import { applyChargeDelta } from './spellProgression'
 
 /**
  * Spell Compendium — pure reducer-style operations over an array of Spells.
@@ -72,14 +72,21 @@ export type ChallengeContext = 'challenge' | 'attack' | 'defense'
 
 export interface ChallengeOutcomeResult {
   spell: Spell
-  leveledUp: LevelUpResult
-  xpGained: number
+  /** Slots before and after this answer, for the run's report. */
+  chargeFrom: number
+  chargeTo: number
+  /** True when this answer filled the word's last slot. */
+  newlyFull: boolean
 }
 
 /**
  * Applies the result of any vocabulary challenge (general event, battle
- * attack, or battle defense) to a Spell: updates encounter/accuracy stats,
- * adjusts charge, and — on a correct answer — grants experience.
+ * attack, or battle defense) to a Spell: updates encounter and accuracy
+ * stats, and moves the charge meter one slot.
+ *
+ * One slot up on a right answer, one down on a wrong one. There is no
+ * experience to grant any more: a word's charge is the only measure of how
+ * well it is known, so an answer moves that and nothing else.
  */
 export function recordChallengeOutcome(
   spell: Spell,
@@ -104,28 +111,15 @@ export function recordChallengeOutcome(
     }
   }
 
+  const chargeFrom = s.charge
   s = applyChargeDelta(s, correct ? spellBalance.chargeGainOnCorrect : -spellBalance.chargeLossOnIncorrect)
 
-  let xpGained = 0
-  let leveledUp: LevelUpResult = { spell: s, leveledUp: false, fromLevel: s.level, toLevel: s.level }
-  if (correct) {
-    xpGained =
-      context === 'attack'
-        ? spellBalance.xpPerCorrectAttack
-        : context === 'defense'
-          ? spellBalance.xpPerCorrectDefense
-          : spellBalance.xpPerCorrectChallenge
-    leveledUp = addExperience(s, xpGained)
-    s = leveledUp.spell
+  return {
+    spell: s,
+    chargeFrom,
+    chargeTo: s.charge,
+    newlyFull: chargeFrom < spellBalance.chargeSlots && s.charge >= spellBalance.chargeSlots,
   }
-
-  return { spell: s, leveledUp, xpGained }
-}
-
-/** Extra XP awarded when a correct answer also clears a Boss Plateau requirement. */
-export function grantPlateauBonusXp(spell: Spell): ChallengeOutcomeResult {
-  const leveledUp = addExperience(spell, spellBalance.xpPerPlateauClear)
-  return { spell: leveledUp.spell, leveledUp, xpGained: spellBalance.xpPerPlateauClear }
 }
 
 export function markEquipped(spells: Spell[], spellIds: string[]): Spell[] {

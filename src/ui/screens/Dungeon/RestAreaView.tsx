@@ -2,6 +2,7 @@ import type { Totem } from '@/domain/totem'
 import type { RewardBundle } from '@/domain/dungeon'
 import type { RestNpc } from '@/systems/restNpcs'
 import { quoteRest } from '@/systems/restArea'
+import { usePersistentStore } from '@/state/persistentStore'
 import type { WorldPack } from '@/config/worldManifest'
 import { WorldImage } from '@/ui/components/WorldImage'
 import { UiIcon } from '@/ui/components/UiIcon'
@@ -25,7 +26,9 @@ interface RestAreaViewProps {
  * number shown here comes from the rest quote, never from the component.
  */
 export function RestAreaView({ totem, usesSoFar, npcs, world, said, onTalk, onRest, onLeave }: RestAreaViewProps) {
-  const quote = quoteRest(totem, usesSoFar)
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
+  const quote = quoteRest(totem, money, usesSoFar)
   const speaking = said ? npcs.find((n) => n.id === said.npcId) : null
 
   return (
@@ -46,7 +49,7 @@ export function RestAreaView({ totem, usesSoFar, npcs, world, said, onTalk, onRe
         </div>
         <div className="stat-tile">
           <div className="faint">보유</div>
-          <div className="value"><UiIcon name="money" size={14} /> {totem.money}</div>
+          <div className="value"><UiIcon name="money" size={14} /> {money}</div>
         </div>
         <div className="stat-tile">
           <div className="faint">다음 이용</div>

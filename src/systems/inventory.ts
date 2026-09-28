@@ -42,8 +42,8 @@ export function applyItemToTotem(totem: Totem, def: ItemDef): Totem {
 }
 
 /**
- * Applies a charge-type item to the given deck Spells, clamped to each
- * Spell's own max charge. Non-charge items return the Spells unchanged.
+ * Applies a charge-type item to the given deck Spells, clamped to the
+ * charge ceiling every word shares. Non-charge items return the Spells unchanged.
  */
 export function applyItemToSpells(spells: Spell[], deckSpellIds: string[], def: ItemDef): Spell[] {
   if (def.effect.kind !== 'charge') return spells
@@ -51,8 +51,7 @@ export function applyItemToSpells(spells: Spell[], deckSpellIds: string[], def: 
   const inDeck = new Set(deckSpellIds)
   return spells.map((s) => {
     if (!inDeck.has(s.id)) return s
-    const max = spellBalance.maxCharge(s.level)
-    return { ...s, charge: Math.min(max, s.charge + amount), maxCharge: max }
+    return { ...s, charge: Math.min(spellBalance.chargeSlots, s.charge + amount) }
   })
 }
 

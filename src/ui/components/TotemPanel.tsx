@@ -2,6 +2,7 @@ import type { Totem } from '@/domain/totem'
 import { AvatarFrame } from './AvatarFrame'
 import { Bar } from './Bar'
 import { useDamageFlash } from '@/ui/hooks/useDamageFlash'
+import { usePersistentStore } from '@/state/persistentStore'
 import { UiIcon } from './UiIcon'
 
 interface TotemPanelProps {
@@ -12,6 +13,8 @@ interface TotemPanelProps {
 }
 
 export function TotemPanel({ totem, effectText, compact }: TotemPanelProps) {
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
   // Watching HP here covers every way the player can be hurt, in the dungeon
   // and in battle alike, since this panel is on screen for both.
   const hit = useDamageFlash(totem.currentHp)
@@ -35,7 +38,7 @@ export function TotemPanel({ totem, effectText, compact }: TotemPanelProps) {
         </div>
         <div className="hp-row">
           <span>
-            <UiIcon name="money" size={13} /> {totem.money}
+            <UiIcon name="money" size={13} /> {money}
           </span>
           {effectText && <span className="faint">{effectText}</span>}
         </div>

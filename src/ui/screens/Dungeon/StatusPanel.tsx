@@ -6,6 +6,7 @@ import { SlidePanel } from '@/ui/components/SlidePanel'
 import { AssetImage } from '@/ui/components/AssetImage'
 import { Bar } from '@/ui/components/Bar'
 import { UiIcon } from '@/ui/components/UiIcon'
+import { usePersistentStore } from '@/state/persistentStore'
 import { wordsNeededThisRun } from '@/state/dungeonStore'
 
 interface StatusPanelProps {
@@ -17,6 +18,8 @@ interface StatusPanelProps {
 }
 
 export function StatusPanel({ totem, run, totemSet, challenged, onClose }: StatusPanelProps) {
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
   const xpNeeded = totemBalance.xpToNextLevel(totem.level)
   const tier = dungeonTiers.find((t) => t.id === run.config.tierId)
 
@@ -98,7 +101,7 @@ export function StatusPanel({ totem, run, totemSet, challenged, onClose }: Statu
         <div className="stats-grid">
           <div className="stat-tile">
             <div className="faint">돈</div>
-            <div className="value"><UiIcon name="money" size={14} /> {totem.money}</div>
+            <div className="value"><UiIcon name="money" size={14} /> {money}</div>
           </div>
           <div className="stat-tile">
             <div className="faint">처치한 보스</div>

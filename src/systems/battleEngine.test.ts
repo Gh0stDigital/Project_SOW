@@ -38,10 +38,21 @@ describe('the face of an attack card', () => {
   })
 })
 
-describe('defense damage scaling', () => {
-  it('runs from full damage at none correct to the reduced floor at all correct', () => {
-    expect(defenseDamage(100, 0, 1)).toBe(100)
-    expect(defenseDamage(100, 1, 1)).toBe(15)
-    expect(defenseDamage(100, 1, 2)).toBeGreaterThan(defenseDamage(100, 2, 2))
+describe('defense damage settles prompt by prompt', () => {
+  it('runs from full damage when every prompt was missed to nothing when every one was countered', () => {
+    expect(defenseDamage(100, ['hit'])).toBe(100)
+    expect(defenseDamage(100, ['blocked'])).toBe(15)
+    expect(defenseDamage(100, ['countered'])).toBe(0)
+  })
+
+  it('charges each prompt its own share of the attack', () => {
+    expect(defenseDamage(100, ['hit', 'hit'])).toBe(100)
+    expect(defenseDamage(100, ['hit', 'blocked'])).toBeGreaterThan(defenseDamage(100, ['blocked', 'blocked']))
+    // Half the attack turned back, half let through reduced.
+    expect(defenseDamage(100, ['countered', 'hit'])).toBe(50)
+  })
+
+  it('is nothing at all when there was nothing to answer', () => {
+    expect(defenseDamage(100, [])).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Spell } from '@/domain/spell'
-import { spellBalance, totemBalance } from '@/config/balance'
+import { totemBalance } from '@/config/balance'
 import { findWorld } from './worldRegistry'
 import { beginPlayerChallenge, defenseDamage, resolvePlayerAttack, spawnEnemy, startBattle } from './battleEngine'
 import { createSpell } from './spellFactory'
@@ -16,13 +16,9 @@ import { damageForSpell } from './spellProgression'
  * blow is worth. These are the two halves of that.
  */
 
-function word(level: number, charge: number): Spell {
-  return {
-    ...createSpell({ korean: '검토', english: 'review' }),
-    level,
-    charge,
-    maxCharge: spellBalance.maxCharge(level),
-  }
+/** A word at a given charge. Slots are the only measure a word has. */
+function word(charge: number): Spell {
+  return { ...createSpell({ korean: '검토', english: 'review' }), charge }
 }
 
 describe('a Totem level is no longer only HP', () => {
@@ -38,7 +34,7 @@ describe('a Totem level is no longer only HP', () => {
     // balance of a first dungeon is the word's own damage.
     expect(totemBalance.might(1)).toBe(1)
     expect(totemBalance.mitigation(1)).toBe(0)
-    const spell = word(3, 4)
+    const spell = word(3)
     expect(damageForSpell(spell, totemBalance.might(1))).toBe(damageForSpell(spell))
   })
 
@@ -50,7 +46,7 @@ describe('a Totem level is no longer only HP', () => {
 
 describe('might decides what a landed blow is worth', () => {
   it('raises a word\'s damage without touching the word', () => {
-    const spell = word(4, 5)
+    const spell = word(4)
     const weak = damageForSpell(spell, totemBalance.might(1))
     const strong = damageForSpell(spell, totemBalance.might(20))
     expect(strong).toBeGreaterThan(weak)
@@ -62,7 +58,7 @@ describe('might decides what a landed blow is worth', () => {
     // it. This plays a real attack through the engine twice and compares
     // what the foe actually lost.
     const world = findWorld('dragon-king-palace')!
-    const spell = word(5, 6)
+    const spell = word(5)
 
     const hpLostWith = (might: number) => {
       // A foe at the shallow end of the first tier's band, so the fight is
@@ -86,22 +82,22 @@ describe('might decides what a landed blow is worth', () => {
 
 describe('mitigation decides what a blow costs', () => {
   it('takes a share off the damage that gets through', () => {
-    const plain = defenseDamage(40, 0, 1)
-    const tough = defenseDamage(40, 0, 1, totemBalance.mitigation(20))
+    const plain = defenseDamage(40, ['hit'])
+    const tough = defenseDamage(40, ['hit'], totemBalance.mitigation(20))
     expect(tough).toBeLessThan(plain)
   })
 
   it('leaves answering the larger of the two effects', () => {
     // A right answer from the weakest Totem must still beat a wrong answer
     // from the toughest one, or the game stops being about the words.
-    const answeredByWeakling = defenseDamage(100, 1, 1, totemBalance.mitigation(1))
-    const missedByVeteran = defenseDamage(100, 0, 1, 0.45)
+    const answeredByWeakling = defenseDamage(100, ['blocked'], totemBalance.mitigation(1))
+    const missedByVeteran = defenseDamage(100, ['hit'], 0.45)
     expect(answeredByWeakling).toBeLessThan(missedByVeteran)
   })
 
   it('ignores a nonsense share rather than healing the Totem', () => {
-    expect(defenseDamage(40, 0, 1, -5)).toBe(defenseDamage(40, 0, 1))
-    expect(defenseDamage(40, 0, 1, 5)).toBe(0)
+    expect(defenseDamage(40, ['hit'], -5)).toBe(defenseDamage(40, ['hit']))
+    expect(defenseDamage(40, ['hit'], 5)).toBe(0)
   })
 })
 

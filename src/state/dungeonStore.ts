@@ -24,7 +24,7 @@ import {
   markWordIntroduced,
   recordBossDefeated,
   recordEnemyDefeated,
-  recordLevelUp,
+  recordChargeGain,
   recordRestUsed,
   recordWordAttempt,
   setOutcomeText,
@@ -66,9 +66,8 @@ import { resolveWorld } from '@/systems/worldRegistry'
 import { buildRunReport, type RunReport } from '@/systems/runResults'
 import type { AttemptKind } from '@/systems/wordStats'
 import { resolveChallenge } from '@/systems/challengeEngine'
-import { grantPlateauBonusXp } from '@/systems/spellCompendium'
 import { applyItemToSpells, applyItemToTotem, countOf, itemUseText, rollItemDrop } from '@/systems/inventory'
-import { addMoney, addTotemExperience, applyDamage, loseLifePoint, recordTierCleared } from '@/systems/totemManager'
+import { addTotemExperience, applyDamage, loseLifePoint, recordTierCleared } from '@/systems/totemManager'
 import { usePersistentStore } from './persistentStore'
 
 function findSpell(spells: Spell[], id: string): Spell | undefined {
@@ -238,13 +237,11 @@ function totemDeckIds(run: DungeonRunState): string[] {
  */
 function creditReward(totemId: string, reward: RewardBundle) {
   const store = usePersistentStore.getState()
-  if (reward.money !== 0 || reward.totemXp !== 0) {
-    store.replaceTotem(totemId, (t) => {
-      let next = t
-      if (reward.money) next = addMoney(next, reward.money)
-      if (reward.totemXp) next = addTotemExperience(next, reward.totemXp).totem
-      return next
-    })
+  // Money belongs to the player, not to whoever happened to carry it out of
+  // the dungeon. XP is the Totem's, because it is the Totem that learned.
+  if (reward.money) store.addMoney(reward.money)
+  if (reward.totemXp) {
+    store.replaceTotem(totemId, (t) => addTotemExperience(t, reward.totemXp).totem)
   }
   for (const itemId of reward.itemIds) store.grantItem(itemId as ItemId)
 }
@@ -428,13 +425,14 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     const store = usePersistentStore.getState()
     const totem = store.totems.find((t) => t.id === run.config.totemId)
     if (!totem) return
-    const result = applyRest(totem, run.restUses)
+    const result = applyRest(totem, store.money, run.restUses)
     // applyRest returns null when unaffordable or already at full HP, so a
     // double-tap can never double-charge.
     if (!result) return
 
     set({ submitting: true })
     store.replaceTotem(totem.id, () => result.totem)
+    store.spendMoney(result.spent)
     set({
       run: recordRestUsed(run, result.spent),
       submitting: false,
@@ -694,24 +692,13 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       mightAgainst(run.config.totemId, battle.enemy.level),
     )
 
-    let finalSpell = outcome.resolution.spell
-    let totalXp = outcome.resolution.xpGained
-    const fromLevel = outcome.resolution.leveledUp.fromLevel
-    let toLevel = outcome.resolution.leveledUp.toLevel
-
-    if (outcome.plateauCleared) {
-      const bonus = grantPlateauBonusXp(finalSpell)
-      finalSpell = bonus.spell
-      totalXp += bonus.xpGained
-      toLevel = bonus.leveledUp.toLevel
-    }
+    const finalSpell = outcome.resolution.spell
     usePersistentStore
       .getState()
       .replaceSpells((spells) => spells.map((s) => (s.id === finalSpell.id ? finalSpell : s)))
 
     let run2 = recordWordAttempt(run, spellId, 'attack', outcome.resolution.correct)
-    if (toLevel > fromLevel) run2 = recordLevelUp(run2, spellId, fromLevel, toLevel)
-    run2 = { ...run2, stats: { ...run2.stats, spellXpEarned: run2.stats.spellXpEarned + totalXp } }
+    run2 = recordChargeGain(run2, spellId, outcome.resolution.chargeFrom, outcome.resolution.chargeTo)
 
     set({ battle: outcome.state, run: run2, submitting: false })
   },
@@ -948,10 +935,7 @@ function submitEvent(set: SetFn, get: GetFn, text: string, timedOut: boolean) {
     .replaceSpells((spells) => spells.map((sp) => (sp.id === resolution.spell.id ? resolution.spell : sp)))
 
   let run2 = recordWordAttempt(clearEventTimer(run), spell.id, kind, resolution.correct)
-  if (resolution.leveledUp.leveledUp) {
-    run2 = recordLevelUp(run2, spell.id, resolution.leveledUp.fromLevel, resolution.leveledUp.toLevel)
-  }
-  run2 = { ...run2, stats: { ...run2.stats, spellXpEarned: run2.stats.spellXpEarned + resolution.xpGained } }
+  run2 = recordChargeGain(run2, spell.id, resolution.chargeFrom, resolution.chargeTo)
 
   if (event.type === 'trap') {
     resolveTrap(set, get, run2, resolution.correct, timedOut)
@@ -1059,26 +1043,16 @@ function resolveDefense(set: SetFn, get: GetFn, text: string, timedOut: boolean)
     timedOut,
     timerSeconds,
     mitigationOf(run.config.totemId),
+    mightAgainst(run.config.totemId, battle.enemy.level),
   )
 
-  let finalSpell = outcome.resolution.spell
-  let totalXp = outcome.resolution.xpGained
-  const fromLevel = outcome.resolution.leveledUp.fromLevel
-  let toLevel = outcome.resolution.leveledUp.toLevel
-
-  if (outcome.plateauCleared) {
-    const bonus = grantPlateauBonusXp(finalSpell)
-    finalSpell = bonus.spell
-    totalXp += bonus.xpGained
-    toLevel = bonus.leveledUp.toLevel
-  }
+  const finalSpell = outcome.resolution.spell
   usePersistentStore
     .getState()
     .replaceSpells((spells) => spells.map((s) => (s.id === finalSpell.id ? finalSpell : s)))
 
   let run2 = recordWordAttempt(run, spellId, 'defense', outcome.resolution.correct)
-  if (toLevel > fromLevel) run2 = recordLevelUp(run2, spellId, fromLevel, toLevel)
-  run2 = { ...run2, stats: { ...run2.stats, spellXpEarned: run2.stats.spellXpEarned + totalXp } }
+  run2 = recordChargeGain(run2, spellId, outcome.resolution.chargeFrom, outcome.resolution.chargeTo)
 
   let battleAfter = outcome.state
   let defeated = false

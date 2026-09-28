@@ -2,6 +2,7 @@ import type { DungeonRunState } from '@/domain/dungeon'
 import type { Totem } from '@/domain/totem'
 import { describeModifier } from '@/systems/directionModifiers'
 import { GiveUpButton } from './GiveUpButton'
+import { usePersistentStore } from '@/state/persistentStore'
 import { UiIcon } from './UiIcon'
 
 interface RunHudProps {
@@ -18,6 +19,8 @@ interface RunHudProps {
  * it can sit above every dungeon state without changing the layout.
  */
 export function RunHud({ run, totem, modeLabel }: RunHudProps) {
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
   return (
     <div className="run-hud">
       <div className="run-hud-row">
@@ -28,7 +31,7 @@ export function RunHud({ run, totem, modeLabel }: RunHudProps) {
           <span className="faint">{'◇'.repeat(Math.max(0, totem.maxLifePoints - totem.lifePoints))}</span>
         </span>
         <span className="run-hud-money">
-          <UiIcon name="money" size={13} /> {totem.money}
+          <UiIcon name="money" size={13} /> {money}
         </span>
         <GiveUpButton />
       </div>

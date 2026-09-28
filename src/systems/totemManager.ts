@@ -55,7 +55,6 @@ export function createTotem(name: string, avatarKey = STARTING_AVATAR): Totem {
     experience: 0,
     currentHp: totemBalance.maxHp(level),
     maxHp: totemBalance.maxHp(level),
-    money: 0,
     lifePoints: totemBalance.startingLifePoints,
     maxLifePoints: totemBalance.startingLifePoints,
     destroyed: false,
@@ -113,10 +112,6 @@ export function recordTierCleared(totem: Totem, tierId: DungeonTierId): Totem {
 
 export function equipSpellSet(totem: Totem, spellSetId: string | null): Totem {
   return { ...totem, equippedSpellSetId: spellSetId }
-}
-
-export function addMoney(totem: Totem, amount: number): Totem {
-  return { ...totem, money: Math.max(0, totem.money + amount) }
 }
 
 export function applyDamage(totem: Totem, amount: number): Totem {
@@ -184,6 +179,3 @@ export function isUsable(totem: Totem): boolean {
   return !totem.destroyed && totem.lifePoints > 0
 }
 
-export function spendMoney(totem: Totem, amount: number): Totem {
-  return { ...totem, money: Math.max(0, totem.money - Math.max(0, Math.round(amount))) }
-}

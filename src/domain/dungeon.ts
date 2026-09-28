@@ -131,7 +131,6 @@ export interface RunStats {
   treasureCollected: number
   moneyEarned: number
   totemXpEarned: number
-  spellXpEarned: number
   correctAnswers: number
   incorrectAnswers: number
   attackCorrect: number
@@ -139,7 +138,8 @@ export interface RunStats {
   defenseCorrect: number
   defenseTotal: number
   itemsCollected: string[]
-  spellLevelUps: { spellId: string; from: number; to: number }[]
+  /** Words whose charge meter climbed this run, and by how much. */
+  chargeGains: { spellId: string; from: number; to: number }[]
   newlyMasteredWords: string[]
   restsUsed: number
   bossDefeated: boolean
@@ -162,7 +162,6 @@ export function createEmptyRunStats(): RunStats {
     treasureCollected: 0,
     moneyEarned: 0,
     totemXpEarned: 0,
-    spellXpEarned: 0,
     correctAnswers: 0,
     incorrectAnswers: 0,
     attackCorrect: 0,
@@ -170,7 +169,7 @@ export function createEmptyRunStats(): RunStats {
     defenseCorrect: 0,
     defenseTotal: 0,
     itemsCollected: [],
-    spellLevelUps: [],
+    chargeGains: [],
     newlyMasteredWords: [],
     restsUsed: 0,
     bossDefeated: false,

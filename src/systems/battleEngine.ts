@@ -1,5 +1,11 @@
 import type { Spell } from '@/domain/spell'
-import type { BattleState, DefenseSequence, EnemyCombatant, PlateauRequirement } from '@/domain/battle'
+import type {
+  BattleState,
+  DefenseOutcome,
+  DefenseSequence,
+  EnemyCombatant,
+  PlateauRequirement,
+} from '@/domain/battle'
 import type { Challenge } from '@/domain/challenge'
 import type { WordRunStats } from '@/domain/dungeon'
 import { battleBalance } from '@/config/balance'
@@ -370,29 +376,51 @@ export function setTimerRunning(state: BattleState, running: boolean): BattleSta
 }
 
 /**
- * Damage from an enemy attack, given how many of its prompts were answered
- * correctly.
+ * How one defense prompt went: countered, blocked, or hit.
  *
- * Partial defense already existed for single prompts (a correct answer let
- * `defendedDamageFraction` through rather than zero), so multi-prompt
- * attacks extend the same idea: damage scales linearly from full damage at
- * zero correct down to that same reduced fraction at all correct.
+ * Being right is no longer the whole story. Answer correctly with more than
+ * half the clock still running and the blow is turned back on the attacker;
+ * answer correctly after that and it is an ordinary block. Wrong or out of
+ * time lands in full.
+ */
+export function defenseOutcomeFor(
+  correct: boolean,
+  timedOut: boolean,
+  remainingSeconds: number,
+  totalSeconds: number,
+): DefenseOutcome {
+  if (timedOut || !correct) return 'hit'
+  if (totalSeconds <= 0) return 'blocked'
+  const left = Math.max(0, Math.min(totalSeconds, remainingSeconds)) / totalSeconds
+  return left > battleBalance.counterWindow ? 'countered' : 'blocked'
+}
+
+/**
+ * Damage from an enemy attack, settled prompt by prompt.
+ *
+ * Each prompt carries an equal share of the attack. A countered prompt
+ * costs nothing at all, a blocked one costs the reduced fraction that
+ * partial defense has always let through, and a missed one costs its share
+ * in full. So a two-word attack half-answered hurts half as much, and one
+ * answered fast throughout hurts not at all.
  */
 export function defenseDamage(
   enemyDamage: number,
-  correct: number,
-  total: number,
+  outcomes: readonly DefenseOutcome[],
   mitigation = 0,
 ): number {
-  if (total <= 0) return 0
-  const ratio = correct / total
-  const floor = battleBalance.defendedDamageFraction
-  const multiplier = 1 - ratio * (1 - floor)
+  if (outcomes.length === 0) return 0
+  const share = enemyDamage / outcomes.length
+  const raw = outcomes.reduce((sum, outcome) => {
+    if (outcome === 'countered') return sum
+    if (outcome === 'blocked') return sum + share * battleBalance.defendedDamageFraction
+    return sum + share
+  }, 0)
   // The Totem's own toughness comes off after the defense, so answering
   // well is still the larger of the two effects and a sturdy Totem is not a
   // reason to stop answering.
   const absorbed = 1 - Math.max(0, Math.min(1, mitigation))
-  return Math.round(enemyDamage * multiplier * absorbed)
+  return Math.round(raw * absorbed)
 }
 
 export interface DefensePromptOutcome {
@@ -400,10 +428,14 @@ export interface DefensePromptOutcome {
   resolution: ChallengeResolution
   /** The spell this prompt asked about. */
   spellId: string
+  /** How this prompt went — see DefenseOutcome. */
+  outcome: DefenseOutcome
   /** True once every prompt in the attack has been answered. */
   sequenceComplete: boolean
   /** Only meaningful when sequenceComplete — 0 until then. */
   damageToTotem: number
+  /** Damage this prompt turned back on the attacker. 0 unless countered. */
+  counterDamage: number
   plateauCleared: boolean
 }
 
@@ -420,12 +452,34 @@ export function resolveDefensePrompt(
   timerSeconds: number,
   /** The defending Totem's damage reduction — totemBalance.mitigation(). */
   mitigation = 0,
+  /**
+   * What one of this Totem's words is worth against this foe, for a
+   * counter-attack — the same number an ordinary attack uses.
+   */
+  might = 1,
 ): DefensePromptOutcome {
   const defense = state.defense!
   const challenge = defense.challenges[defense.index]
   const resolution = timedOut
     ? forceIncorrect(spell, challenge)
     : resolveChallenge(spell, challenge, submitted, 'defense')
+
+  // Read before the timer is replaced for the next prompt: how much of the
+  // clock was left is what decides whether this was a counter or a block.
+  const outcome = defenseOutcomeFor(
+    resolution.correct,
+    timedOut,
+    state.timer?.remainingSeconds ?? 0,
+    state.timer?.totalSeconds ?? timerSeconds,
+  )
+  const counterDamage =
+    outcome === 'countered'
+      ? Math.round(damageForSpell(resolution.spell, might) * battleBalance.counterDamageFraction)
+      : 0
+  let enemy = state.enemy
+  if (counterDamage > 0) {
+    enemy = { ...enemy, currentHp: Math.max(0, enemy.currentHp - counterDamage) }
+  }
 
   // A correct defense counts toward the boss barrier, exactly like a
   // correct attack — which is what stops the barrier soft-locking.
@@ -439,23 +493,26 @@ export function resolveDefensePrompt(
     }
   }
 
-  const results = [...defense.results, resolution.correct]
+  const results = [...defense.results, outcome]
   const nextIndex = defense.index + 1
   const complete = nextIndex >= defense.challenges.length
 
   const log = [
     ...state.log,
-    resolution.correct
-      ? `"${challenge.prompt}"을(를) 제때 떠올렸습니다.`
-      : timedOut
-        ? `너무 늦었습니다! "${challenge.prompt}"에 답하지 못했습니다.`
-        : `"${challenge.prompt}"의 뜻이 틀렸습니다.`,
+    outcome === 'countered'
+      ? `"${challenge.prompt}" — 즉각 되받아쳐 ${counterDamage}의 피해를 입혔습니다!`
+      : outcome === 'blocked'
+        ? `"${challenge.prompt}"을(를) 제때 떠올렸습니다.`
+        : timedOut
+          ? `너무 늦었습니다! "${challenge.prompt}"에 답하지 못했습니다.`
+          : `"${challenge.prompt}"의 뜻이 틀렸습니다.`,
   ]
 
   if (!complete) {
     return {
       state: {
         ...state,
+        enemy,
         plateau,
         defense: { ...defense, index: nextIndex, results },
         activeChallenge: defense.challenges[nextIndex],
@@ -465,38 +522,50 @@ export function resolveDefensePrompt(
       },
       resolution,
       spellId: spell.id,
+      outcome,
       sequenceComplete: false,
       damageToTotem: 0,
+      counterDamage,
       plateauCleared,
     }
   }
 
-  const correctCount = results.filter(Boolean).length
-  const damageToTotem = defenseDamage(state.enemy.damage, correctCount, results.length, mitigation)
+  const countered = results.filter((r) => r === 'countered').length
+  const answered = results.filter((r) => r !== 'hit').length
+  const damageToTotem = defenseDamage(state.enemy.damage, results, mitigation)
   const summary =
-    correctCount === results.length
-      ? `공격을 막아냈습니다 — ${damageToTotem}의 피해만 들어왔습니다.`
-      : correctCount === 0
-        ? `공격이 그대로 적중해 ${damageToTotem}의 피해를 입혔습니다!`
-        : `일부만 막았습니다 — ${results.length}개 중 ${correctCount}개 정답, ${damageToTotem}의 피해를 입었습니다.`
+    countered === results.length
+      ? '전부 되받아쳤습니다 — 한 대도 맞지 않았습니다!'
+      : answered === results.length
+        ? `공격을 막아냈습니다 — ${damageToTotem}의 피해만 들어왔습니다.`
+        : answered === 0
+          ? `공격이 그대로 적중해 ${damageToTotem}의 피해를 입혔습니다!`
+          : `일부만 막았습니다 — ${results.length}개 중 ${answered}개 정답, ${damageToTotem}의 피해를 입었습니다.`
+
+  // A counter that finishes the foe ends the fight there, rather than
+  // leaving a battle standing over a corpse until the player taps on.
+  const nextPhase = enemy.currentHp <= 0 ? 'victory' : 'enemy_resolve'
 
   return {
     state: {
       ...state,
+      enemy,
       plateau,
-      phase: 'enemy_resolve',
+      phase: nextPhase,
       defense: { ...defense, index: nextIndex, results },
       activeChallenge: null,
       lastChallenge: challenge,
       timer: null,
       totemDamageTakenThisBattle: state.totemDamageTakenThisBattle + damageToTotem,
       log: [...log, summary],
-      lastResult: correctCount === results.length ? 'correct' : 'incorrect',
+      lastResult: answered === results.length ? 'correct' : 'incorrect',
     },
     resolution,
     spellId: spell.id,
+    outcome,
     sequenceComplete: true,
     damageToTotem,
+    counterDamage,
     plateauCleared,
   }
 }

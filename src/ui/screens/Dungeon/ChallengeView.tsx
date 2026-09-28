@@ -5,6 +5,7 @@ import { Bar } from '@/ui/components/Bar'
 import { ExampleSentence } from '@/ui/components/ExampleSentence'
 import type { Spell } from '@/domain/spell'
 import { usePersistentStore } from '@/state/persistentStore'
+import { battleBalance } from '@/config/balance'
 import { buildTileChallenge, assembledText, type AnswerTile } from '@/systems/tileAssembly'
 
 interface ChallengeViewProps {
@@ -28,6 +29,15 @@ interface ChallengeViewProps {
    * the question. A timer the player cannot see is not a timer.
    */
   timer?: TimerState | null
+  /**
+   * Draws the counter window on the timer.
+   *
+   * Only defending has one — answer inside it and the blow is turned back
+   * instead of merely softened. A window the player cannot see is not a
+   * window, so the bar is marked and the remaining time is labelled while
+   * the chance is still live.
+   */
+  showCounterWindow?: boolean
 }
 
 /**
@@ -36,7 +46,16 @@ interface ChallengeViewProps {
  * is the player's own saved answer, spelled out) and means no keyboard
  * ever opens mid-dungeon.
  */
-export function ChallengeView({ challenge, answer, decoyPool, onSubmit, submitLabel = '정답', timer = null, spell = null }: ChallengeViewProps) {
+export function ChallengeView({
+  challenge,
+  answer,
+  decoyPool,
+  onSubmit,
+  submitLabel = '정답',
+  timer = null,
+  spell = null,
+  showCounterWindow = false,
+}: ChallengeViewProps) {
   const asksForKorean = challenge.direction === 'eng_to_kor'
   const kind = asksForKorean ? 'korean' : 'english'
   // Only affects the English direction; Korean is syllables either way.
@@ -74,14 +93,28 @@ export function ChallengeView({ challenge, answer, decoyPool, onSubmit, submitLa
 
   return (
     <div className={`panel challenge-prompt${board.granularity === 'whole' ? ' choice-board' : ''}`}>
-      {timer && (
-        <div className="timer-row prompt-timer">
-          <span>⏱ {Math.ceil(timer.remainingSeconds)}s</span>
-          <div style={{ flex: 1 }}>
-            <Bar value={timer.remainingSeconds} max={timer.totalSeconds} kind="timer" thin />
+      {timer && (() => {
+        const inWindow =
+          showCounterWindow &&
+          timer.totalSeconds > 0 &&
+          timer.remainingSeconds / timer.totalSeconds > battleBalance.counterWindow
+        return (
+          <div className={`timer-row prompt-timer${inWindow ? ' counter-live' : ''}`}>
+            <span>⏱ {Math.ceil(timer.remainingSeconds)}s</span>
+            <div style={{ flex: 1, position: 'relative' }}>
+              <Bar value={timer.remainingSeconds} max={timer.totalSeconds} kind="timer" thin />
+              {showCounterWindow && (
+                <span
+                  className="counter-window-mark"
+                  style={{ left: `${battleBalance.counterWindow * 100}%` }}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+            {showCounterWindow && <span className="counter-window-tag">{inWindow ? '⚔ 반격' : '🛡 방어'}</span>}
           </div>
-        </div>
-      )}
+        )
+      })()}
       {/* Above the word, not below the tiles.
           It is context for the question, and context read after the question
           has been answered is not context. Down at the bottom it sat under

@@ -397,10 +397,6 @@ export function applyRewardBundle(run: DungeonRunState, reward: RewardBundle): D
   }
 }
 
-export function addSpellXp(run: DungeonRunState, amount: number): DungeonRunState {
-  return { ...run, stats: { ...run.stats, spellXpEarned: run.stats.spellXpEarned + amount } }
-}
-
 export function recordEnemyDefeated(run: DungeonRunState, wasMimic: boolean): DungeonRunState {
   return {
     ...run,
@@ -416,23 +412,29 @@ export function recordBossDefeated(run: DungeonRunState): DungeonRunState {
   return { ...run, stats: { ...run.stats, bossDefeated: true } }
 }
 
-export function recordLevelUp(
+/**
+ * Records a word's charge moving, for the run's report.
+ *
+ * Only gains are listed — a wrong answer emptying a slot is already felt in
+ * the damage and does not need a line in the summary congratulating the
+ * player for it. Filling the last slot is what counts as newly mastered.
+ */
+export function recordChargeGain(
   run: DungeonRunState,
   spellId: string,
   from: number,
   to: number,
 ): DungeonRunState {
   if (to <= from) return run
-  const crossedMastery = from < spellBalance.masteryLevel && to >= spellBalance.masteryLevel
+  const newlyFull = from < spellBalance.masteredAt && to >= spellBalance.masteredAt
   return {
     ...run,
     stats: {
       ...run.stats,
-      spellLevelUps: [...run.stats.spellLevelUps, { spellId, from, to }],
-      newlyMasteredWords:
-        crossedMastery && !run.stats.newlyMasteredWords.includes(spellId)
-          ? [...run.stats.newlyMasteredWords, spellId]
-          : run.stats.newlyMasteredWords,
+      chargeGains: [...run.stats.chargeGains, { spellId, from, to }],
+      newlyMasteredWords: newlyFull
+        ? [...run.stats.newlyMasteredWords, spellId]
+        : run.stats.newlyMasteredWords,
     },
   }
 }

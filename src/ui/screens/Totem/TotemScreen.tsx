@@ -14,6 +14,8 @@ import { loreFor } from '@/config/totemLore'
 import { UiIcon } from '@/ui/components/UiIcon'
 
 export function TotemScreen() {
+  // Money is the player's purse now, not this Totem's pocket.
+  const money = usePersistentStore((s) => s.money)
   const goTo = useUiStore((s) => s.goTo)
   const totems = usePersistentStore((s) => s.totems)
   const activeTotemId = usePersistentStore((s) => s.activeTotemId)
@@ -181,7 +183,7 @@ export function TotemScreen() {
           </div>
           <div>
             <div className="faint">돈</div>
-            <b><UiIcon name="money" size={14} /> {totem.money}</b>
+            <b><UiIcon name="money" size={14} /> {money}</b>
           </div>
           <div>
             <div className="faint">처치한 보스</div>
@@ -221,7 +223,7 @@ export function TotemScreen() {
       {rosterOpen && (
         <SlidePanel title="내 토템들" onClose={() => setRosterOpen(false)}>
           <p className="faint">
-            토템은 저마다 하나의 인물입니다 — 레벨, 경험치, HP, 돈, 생명력, 기록을 각자 따로 가집니다.
+            토템은 저마다 하나의 인물입니다 — 레벨, 경험치, HP, 생명력, 기록을 각자 따로 가집니다. 돈은 플레이어의 것으로, 모두가 함께 씁니다.
             Switching changes who you play as; it is not a change of portrait.
           </p>
 

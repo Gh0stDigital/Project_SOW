@@ -33,7 +33,6 @@ export interface RunReport {
   turns: number
   moneyEarned: number
   totemXpEarned: number
-  spellXpEarned: number
   itemsCollected: string[]
   enemiesDefeated: number
   mimicsDefeated: number
@@ -48,7 +47,8 @@ export interface RunReport {
 
   words: WordReportRow[]
   struggled: WordReportRow[]
-  levelUps: { spellId: string; korean: string; from: number; to: number }[]
+  /** Words whose charge climbed this run. */
+  chargeGains: { spellId: string; korean: string; from: number; to: number }[]
   masteredWords: string[]
 
   totemHp: number
@@ -127,7 +127,6 @@ export function buildRunReport({
     turns: run.stats.turns,
     moneyEarned: run.stats.moneyEarned,
     totemXpEarned: run.stats.totemXpEarned,
-    spellXpEarned: run.stats.spellXpEarned,
     itemsCollected: run.stats.itemsCollected,
     enemiesDefeated: run.stats.enemiesDefeated,
     mimicsDefeated: run.stats.mimicsDefeated,
@@ -142,7 +141,7 @@ export function buildRunReport({
 
     words,
     struggled,
-    levelUps: run.stats.spellLevelUps.map((l) => ({ ...l, korean: byId.get(l.spellId)?.korean ?? '?' })),
+    chargeGains: run.stats.chargeGains.map((g) => ({ ...g, korean: byId.get(g.spellId)?.korean ?? '?' })),
     masteredWords: run.stats.newlyMasteredWords.map((id) => byId.get(id)?.korean ?? '?'),
 
     totemHp,

@@ -255,6 +255,7 @@ export function BattleView() {
           submitLabel="방어!"
           timer={battle.timer}
           spell={challengeSpell}
+          showCounterWindow
         />
       )}
 

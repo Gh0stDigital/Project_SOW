@@ -54,6 +54,7 @@ export function useSoundtrack(): void {
   const run = useDungeonStore((s) => s.run)
   const battle = useDungeonStore((s) => s.battle)
   const totems = usePersistentStore((s) => s.totems)
+  const money = usePersistentStore((s) => s.money)
   const phase = useTransitionStore((s) => s.phase)
   const lastOutcome = useDungeonStore((s) => s.lastOutcome)
 
@@ -163,8 +164,10 @@ export function useSoundtrack(): void {
     if (totem && totem.level > p.level && p.level > 0) { audio.play('levelUp'); audio.duck() }
     p.level = totem?.level ?? 0
 
-    if (totem && totem.money > p.money && p.money > 0) audio.play('reward')
-    p.money = totem?.money ?? 0
+    // The purse is the player's, so the sting follows the save rather than
+    // whichever Totem happens to be out.
+    if (money > p.money && p.money > 0) audio.play('reward')
+    p.money = money
 
     // What the player has just walked into, announced the moment it is on
     // screen rather than when they finish dealing with it. Waiting for the
@@ -202,5 +205,5 @@ export function useSoundtrack(): void {
     // firing a second discovery a few taps later.
     p.keyFound = run?.keyFound ?? false
     p.bossDoorFound = run?.bossDoorFound ?? false
-  }, [run, battle, totem, lastOutcome])
+  }, [run, battle, totem, money, lastOutcome])
 }
