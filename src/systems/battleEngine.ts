@@ -39,7 +39,7 @@ export function enemyNameFor(slot: string | null): string {
 }
 
 export function spawnEnemy(world: WorldPack, seed: string, tier: DungeonTierDef): EnemyCombatant {
-  const hp = 26 + Math.round(tier.enemyDamageMultiplier * 10)
+  const hp = tier.enemyHp
   const art = enemyArtFor(world, seed)
   return {
     kind: 'enemy',
@@ -47,7 +47,7 @@ export function spawnEnemy(world: WorldPack, seed: string, tier: DungeonTierDef)
     image: { folder: 'enemies', slot: art ?? '' },
     maxHp: hp,
     currentHp: hp,
-    damage: Math.round(battleBalance.baseEnemyDamage * tier.enemyDamageMultiplier),
+    damage: tier.enemyDamage,
   }
 }
 
@@ -69,13 +69,17 @@ export function spawnMimic(world: WorldPack, seed: string, tier: DungeonTierDef)
   }
 }
 
-export function spawnBoss(
-  world: WorldPack,
-  seed: string,
-  tier: DungeonTierDef,
-  wordCount: number,
-): EnemyCombatant {
-  const hp = battleBalance.bossBaseHp + wordCount * battleBalance.bossHpPerWord
+/**
+ * The tier's boss.
+ *
+ * Its HP is the tier's own number and nothing else. It used to be a base
+ * plus four per word in the dungeon pool, which made the deepest boss tough
+ * because the run had read fifty words rather than because it was the
+ * deepest boss — and the barrier already charges one right answer per pool
+ * word, so the pool was being billed for twice.
+ */
+export function spawnBoss(world: WorldPack, seed: string, tier: DungeonTierDef): EnemyCombatant {
+  const hp = tier.bossHp
   // A world may ship its own boss art; one that doesn't borrows an enemy.
   const boss = bossSlot(world, seed)
   return {
@@ -84,7 +88,7 @@ export function spawnBoss(
     image: boss ? { folder: boss.folder, slot: boss.slot } : { folder: 'enemies', slot: '' },
     maxHp: hp,
     currentHp: hp,
-    damage: Math.round(battleBalance.baseEnemyDamage * 1.4 * tier.enemyDamageMultiplier),
+    damage: Math.round(tier.enemyDamage * battleBalance.bossDamageMultiplier),
   }
 }
 
@@ -174,8 +178,20 @@ export interface AttackOutcome {
   plateauCleared: boolean
 }
 
-/** Resolves the player's attack submission. Advances the deck either way. */
-export function resolvePlayerAttack(state: BattleState, spell: Spell, submitted: string): AttackOutcome {
+/**
+ * Resolves the player's attack submission. Advances the deck either way.
+ *
+ * `might` is the attacking Totem's damage multiplier — see
+ * totemBalance.might(). It is passed in rather than read from a store
+ * because this module is pure, and it defaults to 1 so a caller that has no
+ * Totem in hand (a test, a preview) gets the word's own damage.
+ */
+export function resolvePlayerAttack(
+  state: BattleState,
+  spell: Spell,
+  submitted: string,
+  might = 1,
+): AttackOutcome {
   const challenge = state.activeChallenge as Challenge
   const resolution = resolveChallenge(spell, challenge, submitted, 'attack')
 
@@ -192,7 +208,7 @@ export function resolvePlayerAttack(state: BattleState, spell: Spell, submitted:
     }
     const stillBlocked = state.isBoss && plateau && !isFullyCleared(plateau)
     if (!stillBlocked) {
-      damageDealt = damageForSpell(resolution.spell)
+      damageDealt = damageForSpell(resolution.spell, might)
       enemy = { ...enemy, currentHp: Math.max(0, enemy.currentHp - damageDealt) }
     }
   }
@@ -314,12 +330,21 @@ export function setTimerRunning(state: BattleState, running: boolean): BattleSta
  * attacks extend the same idea: damage scales linearly from full damage at
  * zero correct down to that same reduced fraction at all correct.
  */
-export function defenseDamage(enemyDamage: number, correct: number, total: number): number {
+export function defenseDamage(
+  enemyDamage: number,
+  correct: number,
+  total: number,
+  mitigation = 0,
+): number {
   if (total <= 0) return 0
   const ratio = correct / total
   const floor = battleBalance.defendedDamageFraction
   const multiplier = 1 - ratio * (1 - floor)
-  return Math.round(enemyDamage * multiplier)
+  // The Totem's own toughness comes off after the defense, so answering
+  // well is still the larger of the two effects and a sturdy Totem is not a
+  // reason to stop answering.
+  const absorbed = 1 - Math.max(0, Math.min(1, mitigation))
+  return Math.round(enemyDamage * multiplier * absorbed)
 }
 
 export interface DefensePromptOutcome {
@@ -345,6 +370,8 @@ export function resolveDefensePrompt(
   submitted: string,
   timedOut: boolean,
   timerSeconds: number,
+  /** The defending Totem's damage reduction — totemBalance.mitigation(). */
+  mitigation = 0,
 ): DefensePromptOutcome {
   const defense = state.defense!
   const challenge = defense.challenges[defense.index]
@@ -397,7 +424,7 @@ export function resolveDefensePrompt(
   }
 
   const correctCount = results.filter(Boolean).length
-  const damageToTotem = defenseDamage(state.enemy.damage, correctCount, results.length)
+  const damageToTotem = defenseDamage(state.enemy.damage, correctCount, results.length, mitigation)
   const summary =
     correctCount === results.length
       ? `공격을 막아냈습니다 — ${damageToTotem}의 피해만 들어왔습니다.`

@@ -62,7 +62,7 @@ import type { AttemptKind } from '@/systems/wordStats'
 import { resolveChallenge } from '@/systems/challengeEngine'
 import { grantPlateauBonusXp } from '@/systems/spellCompendium'
 import { applyItemToSpells, applyItemToTotem, countOf, itemUseText, rollItemDrop } from '@/systems/inventory'
-import { addMoney, addTotemExperience, applyDamage, loseLifePoint } from '@/systems/totemManager'
+import { addMoney, addTotemExperience, applyDamage, loseLifePoint, recordTierCleared } from '@/systems/totemManager'
 import { usePersistentStore } from './persistentStore'
 
 function findSpell(spells: Spell[], id: string): Spell | undefined {
@@ -240,6 +240,24 @@ function addItemDrop(reward: RewardBundle, chance: number): RewardBundle {
   }
 }
 
+/**
+ * The Totem's two combat multipliers, looked up by id at the moment they are
+ * needed.
+ *
+ * The battle engine is pure and takes them as plain numbers; reading them
+ * here rather than snapshotting them at the start of the fight means a Totem
+ * that levels up mid-dungeon hits harder for the rest of it.
+ */
+function mightOf(totemId: string): number {
+  const totem = usePersistentStore.getState().totems.find((t) => t.id === totemId)
+  return totem ? totemBalance.might(totem.level) : 1
+}
+
+function mitigationOf(totemId: string): number {
+  const totem = usePersistentStore.getState().totems.find((t) => t.id === totemId)
+  return totem ? totemBalance.mitigation(totem.level) : 0
+}
+
 /** Applies damage to the Totem, reporting whether it fell. */
 function damageTotem(totemId: string, amount: number): boolean {
   let defeated = false
@@ -398,7 +416,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
 
     const tier = tierFor(run)
     const world = resolveWorld(run.config.worldId)!
-    const boss = spawnBoss(world, `boss-${run.startedAt}`, tier, run.config.dungeonWordIds.length)
+    const boss = spawnBoss(world, `boss-${run.startedAt}`, tier)
     const bossBattle = startBattle(boss, totemDeckIds(run), run.config.dungeonWordIds)
     const run2 = consumeKey(setState(run, 'BossBattle'))
     set({ run: { ...run2, currentEvent: null, standbyNotice: null }, battle: bossBattle, stage: 'intro', activePanel: null, confirmingBoss: false })
@@ -619,7 +637,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     if (!spell) return
 
     set({ submitting: true })
-    const outcome = resolvePlayerAttack(battle, spell, text)
+    const outcome = resolvePlayerAttack(battle, spell, text, mightOf(run.config.totemId))
 
     let finalSpell = outcome.resolution.spell
     let totalXp = outcome.resolution.xpGained
@@ -701,14 +719,22 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       }
       for (let i = 0; i < itemBalance.bossDropCount; i++) reward = addItemDrop(reward, 1)
       creditReward(totemId, reward)
-      usePersistentStore.getState().replaceTotem(totemId, (t) => ({
-        ...t,
-        stats: {
-          ...t.stats,
-          bossesDefeated: t.stats.bossesDefeated + 1,
-          dungeonsCompleted: t.stats.dungeonsCompleted + 1,
-        },
-      }))
+      // Beating the boss is what opens the next tier, and this is the one
+      // place a boss is recorded as beaten, so it is the one place the clear
+      // can be written from.
+      usePersistentStore.getState().replaceTotem(totemId, (t) =>
+        recordTierCleared(
+          {
+            ...t,
+            stats: {
+              ...t.stats,
+              bossesDefeated: t.stats.bossesDefeated + 1,
+              dungeonsCompleted: t.stats.dungeonsCompleted + 1,
+            },
+          },
+          run.config.tierId,
+        ),
+      )
 
       const run2 = applyRewardBundle(recordBossDefeated(run), reward)
       set({ battle: markRewardsGranted(battle), run: run2 })
@@ -877,7 +903,7 @@ function resolveTrap(set: SetFn, get: GetFn, run: DungeonRunState, correct: bool
     return
   }
 
-  const damage = Math.round(trapBalance.baseDamage * tier.enemyDamageMultiplier)
+  const damage = Math.round(trapBalance.baseDamage * tier.hazardDamageMultiplier)
   const defeated = damageTotem(run.config.totemId, damage)
   const totem = usePersistentStore.getState().totems.find((t) => t.id === run.config.totemId)
   set({
@@ -952,7 +978,14 @@ function resolveDefense(set: SetFn, get: GetFn, text: string, timedOut: boolean)
 
   set({ submitting: true })
   const timerSeconds = usePersistentStore.getState().settings.enemyTimerSeconds
-  const outcome = resolveDefensePrompt(battle, spell, text, timedOut, timerSeconds)
+  const outcome = resolveDefensePrompt(
+    battle,
+    spell,
+    text,
+    timedOut,
+    timerSeconds,
+    mitigationOf(run.config.totemId),
+  )
 
   let finalSpell = outcome.resolution.spell
   let totalXp = outcome.resolution.xpGained

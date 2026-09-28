@@ -8,6 +8,7 @@ import { playableWorlds, incompleteWorlds, resolveWorld } from '@/systems/worldR
 import { TotemPanel } from '@/ui/components/TotemPanel'
 import { SlidePanel } from '@/ui/components/SlidePanel'
 import { dungeonTiers, type DungeonTierId } from '@/config/balance'
+import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
 import { RANDOM_SET_ID, pickRandomSet, usableSets } from '@/systems/spellSetManager'
@@ -44,8 +45,16 @@ export function DungeonConfigScreen() {
   const [dungeonSetId, setDungeonSetId] = useState<string | null>(
     lastSelection.dungeonSpellSetId ?? totemSetId ?? firstUsableSet,
   )
-  const [tierId, setTierId] = useState<DungeonTierId>(lastSelection.tierId)
-  const [worldId, setWorldId] = useState<string | null>(() => playableWorlds()[0]?.id ?? null)
+  // Only worlds this save has opened, and only tiers this Totem has earned.
+  // Both lists are the whole truth the screen works from — a locked world is
+  // not in `worlds` at all, and a locked tier is listed but refused.
+  const worlds = playableWorlds().filter((w) => isWorldUnlocked(w.id))
+  const cleared = totem?.clearedTiers ?? []
+
+  const [tierId, setTierId] = useState<DungeonTierId>(() =>
+    isTierUnlocked(lastSelection.tierId, cleared) ? lastSelection.tierId : deepestUnlockedTier(cleared),
+  )
+  const [worldId, setWorldId] = useState<string | null>(() => worlds[0]?.id ?? null)
 
   /**
    * Which setting is open, if any.
@@ -73,12 +82,16 @@ export function DungeonConfigScreen() {
   const randomPool = usableSets(spellSets)
   const tier = dungeonTiers.find((t) => t.id === tierId)!
 
-  // Only worlds whose pack is complete can be entered. An unfinished one is
-  // listed below with what it still needs, so it reads as work in progress
-  // rather than as a bug.
-  const worlds = playableWorlds()
+  // An unfinished world pack is listed below with what it still needs, so it
+  // reads as work in progress rather than as a bug.
   const unfinished = incompleteWorlds()
-  const world = resolveWorld(worldId)
+  const locked = playableWorlds().filter((w) => !isWorldUnlocked(w.id))
+  // resolveWorld() falls back to the first *playable* world, which is not
+  // necessarily an unlocked one, so the fallback is taken from the unlocked
+  // list instead.
+  const world = worlds.find((w) => w.id === worldId) ?? worlds[0] ?? resolveWorld(worldId)
+  const worldLocked = !world || !isWorldUnlocked(world.id)
+  const tierLocked = !isTierUnlocked(tierId, cleared)
 
   const canStart =
     !!totem &&
@@ -86,10 +99,16 @@ export function DungeonConfigScreen() {
     !!totemSet &&
     totemSet.spellIds.length > 0 &&
     (dungeonRandom ? randomPool.length > 0 : !!dungeonSet && dungeonSet.spellIds.length > 0) &&
-    !!world
+    !!world &&
+    !worldLocked &&
+    !tierLocked
 
   function handleStart() {
     if (!totem || !totemSet || !world) return
+    // The same two gates the button is disabled by, enforced again here: a
+    // stale saved selection must not be able to start a run the player has
+    // not earned.
+    if (worldLocked || tierLocked) return
     // Rolled here rather than when the setting was chosen: the marker is
     // what gets saved, so every run re-rolls instead of the first pick
     // becoming the permanent answer.
@@ -197,15 +216,21 @@ export function DungeonConfigScreen() {
 
           {dungeonSet && (
             <p className="faint setup-summary">
-              단어 {dungeonSet.spellIds.length}개 중 {Math.min(dungeonSet.spellIds.length, tier.wordLimit)}개를 사용합니다 ·
-              적 피해 ×{tier.enemyDamageMultiplier}
+              단어 {dungeonSet.spellIds.length}개 중 {Math.min(dungeonSet.spellIds.length, tier.wordLimit)}개를 사용합니다
             </p>
           )}
           {dungeonRandom && randomPool.length > 0 && (
-            <p className="faint setup-summary">
-              시작할 때마다 세트를 하나 고릅니다 · 적 피해 ×{tier.enemyDamageMultiplier}
-            </p>
+            <p className="faint setup-summary">시작할 때마다 세트를 하나 고릅니다</p>
           )}
+          {/* What the dungeon is actually like, and what it expects of the
+              Totem. The old line said "enemy damage ×1.25", which is a
+              number from the balance file rather than anything a player can
+              act on. */}
+          <p className="faint setup-summary">
+            적 HP {tier.enemyHp} · 적 피해 {tier.enemyDamage} · 보스 HP {tier.bossHp} · 권장 토템 Lv{' '}
+            {tier.recommendedTotemLevel}
+            {totem.level < tier.recommendedTotemLevel ? ` (현재 Lv ${totem.level})` : ''}
+          </p>
 
           {openSetting === 'world' && (
             <SlidePanel title="세계" onClose={close}>
@@ -225,6 +250,15 @@ export function DungeonConfigScreen() {
                       {w.enemies.length}종의 적 · {w.npcs.length}명의 인물
                     </div>
                     {w.description && <div className="tier-card-meta faint">{w.description}</div>}
+                  </button>
+                ))}
+                {/* Finished worlds this save has not opened yet. Shown so the
+                    game reads as somewhere with more in it, rather than as a
+                    game with one world in it. */}
+                {locked.map((w) => (
+                  <button key={w.id} className="tier-card stacked" disabled>
+                    <div className="tier-card-name">🔒 {w.name}</div>
+                    <div className="tier-card-meta faint">아직 열리지 않은 세계입니다.</div>
                   </button>
                 ))}
               </div>
@@ -249,25 +283,47 @@ export function DungeonConfigScreen() {
           {openSetting === 'tier' && (
             <SlidePanel title="던전 등급" onClose={close}>
               <div className="tier-card-list">
-                {dungeonTiers.map((t) => (
-                  <button
-                    key={t.id}
-                    className="tier-card stacked"
-                    data-selected={tierId === t.id}
-                    onClick={() => {
-                      setTierId(t.id)
-                      close()
-                    }}
-                  >
-                    <div className="tier-card-name">{t.name}</div>
-                    <div className="tier-card-meta faint">{t.label}</div>
-                    <div className="tier-card-meta faint">{t.description}</div>
-                    <div className="tier-card-meta faint">
-                      단어 {t.wordLimit}개 · 보스 ~{t.minEventsBeforeBossEligible}개 사건 · 적 피해 ×
-                      {t.enemyDamageMultiplier}
-                    </div>
-                  </button>
-                ))}
+                {dungeonTiers.map((t) => {
+                  const unlocked = isTierUnlocked(t.id, cleared)
+                  const required = tierRequirement(t.id)
+                  const requiredTier = dungeonTiers.find((d) => d.id === required)
+                  return (
+                    <button
+                      key={t.id}
+                      className="tier-card stacked"
+                      data-selected={tierId === t.id}
+                      // Listed but refused: a locked tier is something to aim
+                      // at, so hiding it would hide the reason to go back down
+                      // and finish the one above it.
+                      disabled={!unlocked}
+                      onClick={() => {
+                        setTierId(t.id)
+                        close()
+                      }}
+                    >
+                      <div className="tier-card-name">
+                        {unlocked ? t.name : `🔒 ${t.name}`}
+                      </div>
+                      <div className="tier-card-meta faint">{t.label}</div>
+                      {unlocked ? (
+                        <>
+                          <div className="tier-card-meta faint">{t.description}</div>
+                          <div className="tier-card-meta faint">
+                            단어 {t.wordLimit}개 · 보스 ~{t.minEventsBeforeBossEligible}개 사건 · 적 HP {t.enemyHp} ·
+                            적 피해 {t.enemyDamage}
+                          </div>
+                          <div className="tier-card-meta faint">권장 토템 Lv {t.recommendedTotemLevel}</div>
+                        </>
+                      ) : (
+                        <div className="tier-card-meta faint">
+                          {requiredTier
+                            ? `${requiredTier.name}의 보스를 먼저 쓰러뜨려야 열립니다.`
+                            : '아직 열리지 않았습니다.'}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </SlidePanel>
           )}
@@ -358,7 +414,15 @@ export function DungeonConfigScreen() {
             <button className="btn btn-primary btn-block" data-sfx="none" disabled={!canStart} onClick={handleStart}>
               던전 입장
             </button>
-            {!canStart && <p className="faint">두 역할 모두에 비어 있지 않은 주문 세트를 골라야 계속할 수 있습니다.</p>}
+            {!canStart && (
+              <p className="faint">
+                {tierLocked
+                  ? '이 등급은 아직 열리지 않았습니다 — 한 단계 위의 보스를 먼저 쓰러뜨리세요.'
+                  : worldLocked
+                    ? '이 세계는 아직 열리지 않았습니다.'
+                    : '두 역할 모두에 비어 있지 않은 주문 세트를 골라야 계속할 수 있습니다.'}
+              </p>
+            )}
           </div>
         </>
       )}

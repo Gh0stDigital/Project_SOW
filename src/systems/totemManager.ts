@@ -1,5 +1,6 @@
 import type { Totem } from '@/domain/totem'
-import { totemBalance } from '@/config/balance'
+import { totemBalance, type DungeonTierId } from '@/config/balance'
+import { STARTING_TOTEM_KEY } from '@/config/progression'
 import { makeId } from './idGen'
 
 /**
@@ -9,15 +10,16 @@ import { makeId } from './idGen'
  */
 export function nameFromAvatarKey(avatarKey: string): string {
   // The fallback portrait is a code concept, not somebody's artwork, so it
-  // is the one key here that gets a name of our own rather than its filename.
-  if (avatarKey.toLowerCase() === 'default') return '토템'
+  // stands in for the Totem the game starts you as rather than for the word
+  // "totem".
+  if (avatarKey.toLowerCase() === 'default') return STARTING_TOTEM_KEY
   const base = avatarKey.replace(/^totem[_-]?/i, '')
   const words = base
     .replace(/[_-]+/g, ' ')
     // splitCamelCase -> split Camel Case
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .trim()
-  if (!words) return '토템'
+  if (!words) return STARTING_TOTEM_KEY
   return words
     .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
@@ -37,14 +39,17 @@ export function nameFromAvatarKey(avatarKey: string): string {
  * comes out. That landed on Dolbae, but by arithmetic rather than by
  * intent: adding one file to the folder would have silently changed who the
  * game starts you as.
+ *
+ * Re-exported from config/progression rather than spelled again here, since
+ * the same portrait is the one thing a new save has unlocked.
  */
-export const STARTING_AVATAR = 'Dolbae'
+export const STARTING_AVATAR = STARTING_TOTEM_KEY
 
 export function createTotem(name: string, avatarKey = STARTING_AVATAR): Totem {
   const level = 1
   return {
     id: makeId('totem'),
-    name: name.trim() || '토템',
+    name: name.trim() || STARTING_TOTEM_KEY,
     avatarKey,
     level,
     experience: 0,
@@ -55,6 +60,7 @@ export function createTotem(name: string, avatarKey = STARTING_AVATAR): Totem {
     maxLifePoints: totemBalance.startingLifePoints,
     destroyed: false,
     equippedSpellSetId: null,
+    clearedTiers: [],
     stats: {
       dungeonsCompleted: 0,
       bossesDefeated: 0,
@@ -94,6 +100,15 @@ export function addTotemExperience(totem: Totem, amount: number): TotemLevelUpRe
     currentHp: Math.min(newMax, totem.currentHp + Math.max(0, hpGain)),
   }
   return { totem: next, leveledUp: level > fromLevel, fromLevel, toLevel: level }
+}
+
+/**
+ * Records that this Totem has beaten a tier's boss, which is what opens the
+ * next tier. Idempotent: beating the same boss twice does not double-record.
+ */
+export function recordTierCleared(totem: Totem, tierId: DungeonTierId): Totem {
+  if (totem.clearedTiers.includes(tierId)) return totem
+  return { ...totem, clearedTiers: [...totem.clearedTiers, tierId] }
 }
 
 export function equipSpellSet(totem: Totem, spellSetId: string | null): Totem {

@@ -18,11 +18,18 @@ interface SpellCardProps {
   avatar?: string
   /** Boss-barrier state for this word, when a barrier is up. */
   barrierCleared?: boolean
+  /**
+   * The wielding Totem's damage multiplier, so the damage printed on the
+   * card is the damage the card will actually do. Without it the number
+   * would be the word's own, which stopped being the whole answer the moment
+   * a Totem's level started counting for something.
+   */
+  might?: number
   onClick?: () => void
 }
 
 /** A single battle-hand Spell card: word, level, charge, potential damage. */
-export function SpellCard({ spell, selected, disabled, avatar, barrierCleared, onClick }: SpellCardProps) {
+export function SpellCard({ spell, selected, disabled, avatar, barrierCleared, might = 1, onClick }: SpellCardProps) {
   const element = elementDefFor(spell.wordType)
   // The icon belongs to the element, not to the word: a fire word shows the
   // fire seal, here and in the list and anywhere else the word appears.
@@ -63,7 +70,7 @@ export function SpellCard({ spell, selected, disabled, avatar, barrierCleared, o
         <span title={element.label}>
           <ElementIcon element={element} size={14} /> Lv {spell.level}
         </span>
-        <span>피해 {damageForSpell(spell)}</span>
+        <span>피해 {damageForSpell(spell, might)}</span>
       </div>
       <Bar value={spell.charge} max={spell.maxCharge} kind="charge" thin />
     </div>

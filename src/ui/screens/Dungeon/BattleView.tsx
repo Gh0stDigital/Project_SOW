@@ -10,6 +10,7 @@ import { BarrierRoulette } from '@/ui/components/BarrierRoulette'
 import { ExampleSentence } from '@/ui/components/ExampleSentence'
 import { useDamageFlash } from '@/ui/hooks/useDamageFlash'
 import { sceneSlotFor } from '@/config/scenes'
+import { totemBalance } from '@/config/balance'
 import { Bar } from '@/ui/components/Bar'
 import { SpellCard } from '@/ui/components/SpellCard'
 import { TotemPanel } from '@/ui/components/TotemPanel'
@@ -206,6 +207,7 @@ export function BattleView() {
                   spell={spell}
                   avatar={attackCardAvatar(spell.korean)}
                   barrierCleared={barrierUp ? cleared : undefined}
+                  might={totemBalance.might(totem.level)}
                   onClick={() => selectCard(spell.id)}
                 />
               )

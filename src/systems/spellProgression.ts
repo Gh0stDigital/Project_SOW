@@ -45,11 +45,19 @@ export function applyChargeDelta(spell: Spell, delta: number): Spell {
   return { ...spell, charge }
 }
 
-/** Damage a Spell would deal right now, given its level + current charge. */
-export function damageForSpell(spell: Spell): number {
+/**
+ * Damage a Spell would deal right now, given its level + current charge, and
+ * the might of whoever is casting it.
+ *
+ * The word decides whether the blow lands and how well charged it is; the
+ * Totem decides what a landed blow is worth. `might` is that second factor —
+ * totemBalance.might(level) — and it defaults to 1 so the word's own damage
+ * is still what this returns when nobody is holding it.
+ */
+export function damageForSpell(spell: Spell, might = 1): number {
   const base = spellBalance.baseDamage(spell.level)
   const mult = spellBalance.chargeDamageMultiplier(spell.charge, spell.maxCharge)
-  return Math.round(base * mult)
+  return Math.round(base * mult * might)
 }
 
 /** True when a Spell is at maximum charge (bonus rewards apply). */

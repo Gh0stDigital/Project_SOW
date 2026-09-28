@@ -24,9 +24,12 @@ import {
   pruneSpellFromAllSets,
 } from '@/systems/spellSetManager'
 import { createTotem, equipSpellSet, isUsable, STARTING_AVATAR } from '@/systems/totemManager'
+import { STARTING_TOTEM_KEY, isTotemUnlocked } from '@/config/progression'
 import { migrateSpells } from '@/systems/spellMigration'
 import { totemBalance } from '@/config/balance'
-import { hasAsset } from '@/config/assets'
+
+/** What the first Totem used to be called before it had a name. */
+const LEGACY_DEFAULT_TOTEM_NAME = '토템'
 
 export interface DungeonSelectionDraft {
   totemSpellSetId: string | null
@@ -59,7 +62,9 @@ export interface PersistedData {
 const persistence = new PersistenceService<PersistedData>(localStorageAdapter)
 
 function defaultData(): PersistedData {
-  const totem = createTotem('토템')
+  // Named after who they are, not after what they are. The default used to
+  // be '토템' — the word "totem" — which is the category, not the character.
+  const totem = createTotem(STARTING_TOTEM_KEY)
   return {
     spells: [],
     spellSets: [],
@@ -86,16 +91,28 @@ function loadInitial(): PersistedData {
     spellSets: saved.spellSets ?? defaults.spellSets,
     totems: (saved.totems && saved.totems.length > 0 ? saved.totems : defaults.totems).map((t) => ({
       ...t,
-      // A saved portrait is kept as-is. An unknown key (art removed or
-      // renamed since the save) falls back rather than breaking the load,
-      // and it falls back to a portrait that exists rather than to a key
-      // that has to be guessed at again on every render.
-      avatarKey: hasAsset('totems', t.avatarKey) ? t.avatarKey : STARTING_AVATAR,
+      // A saved portrait is kept when it names art the save is allowed to
+      // wear. An unknown key (art removed or renamed since the save) or a
+      // locked one falls back rather than breaking the load, and it falls
+      // back to a portrait that exists rather than to a key that has to be
+      // guessed at again on every render.
+      // isTotemUnlocked() answers false for a key that names nothing, so
+      // this covers both cases at once.
+      avatarKey: isTotemUnlocked(t.avatarKey) ? t.avatarKey : STARTING_AVATAR,
+      // A Totem still carrying the old default name is carrying the word
+      // "totem", not a name somebody chose — nobody types that over the top
+      // of a name they wanted. A name of their own is left alone.
+      name: t.name === LEGACY_DEFAULT_TOTEM_NAME ? STARTING_TOTEM_KEY : t.name,
       // Life Points were added after some saves were written — give older
       // Totems a full set rather than a destroyed one.
       lifePoints: t.lifePoints ?? totemBalance.startingLifePoints,
       maxLifePoints: t.maxLifePoints ?? totemBalance.startingLifePoints,
       destroyed: t.destroyed ?? false,
+      // Tier clears were added after some saves were written. An absent
+      // record reads as "nothing cleared", so a save from before the gate
+      // existed starts at the first tier like a new one — which is the
+      // honest answer, since nothing ever recorded what it had beaten.
+      clearedTiers: t.clearedTiers ?? [],
       stats: { ...t.stats, dungeonsFailed: t.stats?.dungeonsFailed ?? 0 },
     })),
     activeTotemId: saved.activeTotemId ?? defaults.activeTotemId,
@@ -128,7 +145,7 @@ export interface PersistentStore extends PersistedData {
   createTotem(name: string, avatarKey?: string): Totem
   /** Throws the save away and begins again. */
   startNewGame(): void
-  /** Swaps a Totem's portrait to any art the totems registry offers. */
+  /** Swaps a Totem's portrait to any unlocked art the registry offers. */
   setTotemAvatar(totemId: string, avatarKey: string): void
   /** Totems that can still enter a dungeon (not destroyed). */
   usableTotems(): Totem[]
@@ -206,14 +223,17 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
   },
 
   createTotem(name, avatarKey) {
-    const totem = createTotem(name, avatarKey && hasAsset('totems', avatarKey) ? avatarKey : STARTING_AVATAR)
+    // A locked portrait is refused here as well as hidden in the picker, so
+    // the lock is a rule of the save rather than a property of one screen.
+    const allowed = !!avatarKey && isTotemUnlocked(avatarKey)
+    const totem = createTotem(name, allowed ? avatarKey : STARTING_AVATAR)
     // A newly raised Totem becomes the active one — otherwise a player
     // whose only Totem was destroyed would still have no one to play as.
     set((state) => ({ totems: [...state.totems, totem], activeTotemId: totem.id }))
     return totem
   },
   setTotemAvatar(totemId, avatarKey) {
-    if (!hasAsset('totems', avatarKey)) return
+    if (!isTotemUnlocked(avatarKey)) return
     set((state) => ({
       totems: state.totems.map((t) => (t.id === totemId ? { ...t, avatarKey } : t)),
     }))

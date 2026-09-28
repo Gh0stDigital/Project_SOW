@@ -9,6 +9,7 @@ import { SlidePanel } from '@/ui/components/SlidePanel'
 import { totemBalance } from '@/config/balance'
 import { assetKeys, resolvedKey } from '@/config/assets'
 import { isUsable, nameFromAvatarKey } from '@/systems/totemManager'
+import { isTotemUnlocked } from '@/config/progression'
 import { loreFor } from '@/config/totemLore'
 import { UiIcon } from '@/ui/components/UiIcon'
 
@@ -59,6 +60,11 @@ export function TotemScreen() {
 
   const equippedSet = spellSets.find((s) => s.id === totem.equippedSpellSetId) ?? null
   const xpNeeded = totemBalance.xpToNextLevel(totem.level)
+
+  // Every portrait in the folder is still listed — a locked one is something
+  // to look forward to, so hiding it would hide that there is anything to
+  // unlock — but only the unlocked ones can be raised or worn.
+  const portraits = assetKeys('totems').map((key) => ({ key, unlocked: isTotemUnlocked(key) }))
 
   return (
     // Scrolls: the portrait grows with the screen, and this is a screen you
@@ -245,21 +251,25 @@ export function TotemScreen() {
 
           <h3>새 토템 기르기</h3>
           <p className="faint">
-            생명력을 가득 채운 레벨 1로 시작하며, 이름은 초상화에서 따옵니다.{' '}
-            <code>public/assets/totems</code>에 있는 모든 초상화를 쓸 수 있습니다.
+            생명력을 가득 채운 레벨 1로 시작하며, 이름은 초상화에서 따옵니다. 잠긴 초상화는 아직 기를 수
+            없습니다.
           </p>
           <div className="avatar-grid">
-            {assetKeys('totems').map((key) => (
+            {portraits.map(({ key, unlocked }) => (
               <button
                 key={key}
                 className="avatar-option"
+                disabled={!unlocked}
+                title={unlocked ? undefined : '아직 잠겨 있습니다'}
                 onClick={() => {
                   createNewTotem(nameFromAvatarKey(key), key)
                   setRosterOpen(false)
                 }}
               >
                 <AvatarFrame assetKey={key} alt={key} size="tile" />
-                <span className="avatar-option-name">{nameFromAvatarKey(key)}</span>
+                <span className="avatar-option-name">
+                  {unlocked ? nameFromAvatarKey(key) : `🔒 ${nameFromAvatarKey(key)}`}
+                </span>
               </button>
             ))}
           </div>
@@ -269,21 +279,22 @@ export function TotemScreen() {
       {avatarPickerOpen && (
         <SlidePanel title="초상화 고르기" onClose={() => setAvatarPickerOpen(false)}>
           <p className="faint">
-            <code>public/assets/totems</code>에 있는 모든 초상화입니다. 겉모습만 바뀌고 토템의 다른 것은
-            그대로입니다.
+            겉모습만 바뀌고 토템의 다른 것은 그대로입니다. 잠긴 초상화는 아직 고를 수 없습니다.
           </p>
           <div className="avatar-grid">
-            {assetKeys('totems').map((key) => (
+            {portraits.map(({ key, unlocked }) => (
               <button
                 key={key}
                 className={`avatar-option${key === totem.avatarKey ? ' selected' : ''}`}
+                disabled={!unlocked}
+                title={unlocked ? undefined : '아직 잠겨 있습니다'}
                 onClick={() => {
                   setTotemAvatar(totem.id, key)
                   setAvatarPickerOpen(false)
                 }}
               >
                 <AvatarFrame assetKey={key} alt={key} size="tile" />
-                <span className="avatar-option-name">{key}</span>
+                <span className="avatar-option-name">{unlocked ? key : `🔒 ${key}`}</span>
               </button>
             ))}
           </div>

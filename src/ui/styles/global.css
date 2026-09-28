@@ -3463,6 +3463,16 @@ button.totem-hero-frame {
   color: var(--accent-gold);
 }
 
+/* A locked portrait stays in the grid — it is something to look forward to,
+   and hiding it would hide that there is anything to unlock — but it has to
+   read as unavailable at a glance rather than only by the padlock beside its
+   name. */
+.avatar-option:disabled {
+  cursor: default;
+  opacity: 0.45;
+  filter: grayscale(0.85);
+}
+
 .avatar-option .avatar-img {
   width: 100%;
   aspect-ratio: 1;

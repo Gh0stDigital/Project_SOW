@@ -83,6 +83,33 @@ export const totemBalance = {
   maxHp(level: number): number {
     return 40 + (level - 1) * 8
   },
+  /**
+   * How hard this Totem hits, as a multiplier on a word's damage.
+   *
+   * Knowing the word is what lands the blow; the Totem is what the blow is
+   * worth. Before this, a Totem's level bought nothing but HP — it could
+   * out-live a deeper dungeon but never out-fight one, so the only way past
+   * a tier was more studying, which is the same wall twice rather than a
+   * second axis.
+   *
+   * 6% a level, so the curve is legible from the level number: ×1.00 at 1,
+   * ×1.54 at 10, ×2.14 at 20, ×3.94 at the cap. Deliberately smaller than
+   * the swing a word's own charge gives (×0.5 to ×1.5), because the Totem is
+   * the floor a player stands on and the word is what they do with it.
+   */
+  might(level: number): number {
+    return 1 + (level - 1) * 0.06
+  },
+  /**
+   * The fraction of incoming damage this Totem shrugs off.
+   *
+   * The other half of the same idea, and the reason an under-levelled Totem
+   * in a deep dungeon dies to the third enemy rather than merely taking
+   * longer to win. Capped at 45% so no level makes a Totem untouchable.
+   */
+  mitigation(level: number): number {
+    return Math.min(0.45, (level - 1) * 0.012)
+  },
   /** XP a Totem earns from a resolved dungeon event or battle action. */
   xpPerEvent: 4,
   xpPerBattleWin: 25,
@@ -121,10 +148,41 @@ export interface DungeonTierDef {
   wordLimit: number
   /** Roughly how many non-boss events occur before the boss room can spawn. */
   minEventsBeforeBossEligible: number
-  /** Multiplies enemy/trap damage for this tier. */
-  enemyDamageMultiplier: number
+  /** HP an ordinary foe of this tier holds. */
+  enemyHp: number
+  /** Damage one of its attacks does, before the Totem's mitigation. */
+  enemyDamage: number
+  /** HP this tier's boss holds. */
+  bossHp: number
+  /** Multiplies hazard damage — traps, which are not combatants. */
+  hazardDamageMultiplier: number
+  /**
+   * The Totem level this tier is built around. Advisory: what stops a
+   * level-1 Totem walking into the deepest dungeon is the clear-the-previous
+   * -tier gate in config/progression.ts, not this number. This is what the
+   * dungeon screen tells the player before they commit.
+   */
+  recommendedTotemLevel: number
 }
 
+/**
+ * The three depths.
+ *
+ * They used to differ in two things: how many words the run drew from, and a
+ * multiplier on enemy damage. Enemy HP was 36, 39 and 42 — a spread of six
+ * points across the whole game — and boss HP was 80 plus four per word in
+ * the pool. So a deeper tier did not mean tougher foes, it meant *more
+ * questions*: the same enemies, more of them, and a boss barrier demanding
+ * one right answer per word in a pool of fifty. Depth was a reading load.
+ *
+ * Now each tier states its own HP and damage outright. The numbers were
+ * picked by simulating how many correct answers an ordinary fight takes for
+ * a player who has actually reached that tier — three to five, at every
+ * depth — so a deeper dungeon asks for a stronger Totem and better-charged
+ * words rather than simply more of your evening. Boss HP is a flat number
+ * per tier for the same reason: tied to the pool size it grew with the
+ * reading, not the difficulty.
+ */
 export const dungeonTiers: DungeonTierDef[] = [
   {
     id: 'tier10',
@@ -133,7 +191,11 @@ export const dungeonTiers: DungeonTierDef[] = [
     description: '부담 없는 첫 탐험 — 기초 어휘를 다지기에 좋습니다.',
     wordLimit: 10,
     minEventsBeforeBossEligible: 6,
-    enemyDamageMultiplier: 1,
+    enemyHp: 42,
+    enemyDamage: 7,
+    bossHp: 120,
+    hazardDamageMultiplier: 1,
+    recommendedTotemLevel: 1,
   },
   {
     id: 'tier25',
@@ -142,7 +204,11 @@ export const dungeonTiers: DungeonTierDef[] = [
     description: '익숙한 단어와 새 단어가 섞여 압박이 점점 커지는 긴 시험입니다.',
     wordLimit: 25,
     minEventsBeforeBossEligible: 12,
-    enemyDamageMultiplier: 1.25,
+    enemyHp: 100,
+    enemyDamage: 16,
+    bossHp: 300,
+    hazardDamageMultiplier: 1.6,
+    recommendedTotemLevel: 8,
   },
   {
     id: 'tier50',
@@ -151,7 +217,11 @@ export const dungeonTiers: DungeonTierDef[] = [
     description: '가장 깊은 곳 — 충분히 준비한 사람을 위한 어휘의 시험대입니다.',
     wordLimit: 50,
     minEventsBeforeBossEligible: 20,
-    enemyDamageMultiplier: 1.6,
+    enemyHp: 220,
+    enemyDamage: 28,
+    bossHp: 640,
+    hazardDamageMultiplier: 2.4,
+    recommendedTotemLevel: 18,
   },
 ]
 
@@ -164,14 +234,10 @@ export const battleBalance = {
   visibleHandSize: 3,
   /** Default seconds the player has to answer an enemy attack. Configurable for a11y/testing. */
   defaultEnemyTimerSeconds: 12,
-  /** Base enemy attack damage before tier multiplier. */
-  baseEnemyDamage: 6,
   /** Damage dealt to the player when correctly defending (heavily reduced, not zero). */
   defendedDamageFraction: 0.15,
-  /** Boss base HP, before per-word-pool scaling. */
-  bossBaseHp: 80,
-  /** Additional boss HP per word in the dungeon pool. */
-  bossHpPerWord: 4,
+  /** A boss hits this much harder than an ordinary foe of the same tier. */
+  bossDamageMultiplier: 1.4,
 
   /**
    * How many defense prompts a single enemy attack can demand. One prompt

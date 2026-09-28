@@ -1,3 +1,5 @@
+import type { DungeonTierId } from '@/config/balance'
+
 /**
  * A Totem is the player's controllable dungeon character.
  */
@@ -29,6 +31,16 @@ export interface Totem {
 
   /** The currently equipped Spell Set (battle deck source), or null. */
   equippedSpellSetId: string | null
+
+  /**
+   * Dungeon tiers whose boss this Totem has beaten, which is what opens the
+   * next tier down.
+   *
+   * Per Totem rather than per save, because each one is its own character
+   * with its own level and record — a Totem raised later earns its own way
+   * down rather than inheriting somebody else's clears.
+   */
+  clearedTiers: DungeonTierId[]
 
   stats: {
     dungeonsCompleted: number
