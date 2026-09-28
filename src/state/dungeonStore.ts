@@ -652,7 +652,10 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     }
     const dungeonSpells = resolveSpells(run.config.dungeonWordIds, usePersistentStore.getState().spells)
     const timerSeconds = usePersistentStore.getState().settings.enemyTimerSeconds
-    set({ battle: beginEnemyChallenge(battle, dungeonSpells, timerSeconds) })
+    // The run's word record goes in too, so an enemy's volley draws by the
+    // same weighting the dungeon's own events use — otherwise a fight would
+    // be the one place that keeps handing back words already known.
+    set({ battle: beginEnemyChallenge(battle, dungeonSpells, timerSeconds, Math.random, run.wordStats) })
   },
 
   tickBattleTimer(deltaSeconds) {

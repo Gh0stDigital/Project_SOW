@@ -23,6 +23,16 @@ export interface EventRollContext {
   modifiers: ActiveModifier[]
   /** Suppresses a second Boss Door once one has been found. */
   bossDoorFound: boolean
+  /**
+   * Suppresses further Rest Areas once one has been found.
+   *
+   * Finding one is what puts it on the hold-to-open destinations menu, so
+   * from then on it is somewhere the player can walk to whenever they like.
+   * Rolling it again spends a Move on a room they already had, which on a
+   * run that is waiting for its last word is the most expensive thing the
+   * table can hand out.
+   */
+  restAreaFound: boolean
   /** Suppresses a second Key Room — a run may only ever produce one key. */
   keyRoomSeen: boolean
   /** True once every pool word has been introduced. */
@@ -101,6 +111,7 @@ function pickWeighted(ctx: EventRollContext, rng: () => number): DungeonEventTyp
     if (weight <= 0) return false
     // Once-only events disappear from the table after they've been found.
     if (type === 'boss_door' && ctx.bossDoorFound) return false
+    if (type === 'rest' && ctx.restAreaFound) return false
     if (type === 'key_room') return false // never rolled here — see rollEvent
     if (type === streakType && streak >= maxRepeatEventStreak) return false
     return true

@@ -216,3 +216,55 @@ export const gameplayBalance = {
   /** Minimum notes-free Spell fields required to save. */
   requireNotes: false,
 }
+
+// ---------------------------------------------------------------------------
+// Which word a run asks about next
+// ---------------------------------------------------------------------------
+
+/**
+ * How often each word comes up while a run is going on.
+ *
+ * It used to be an even draw over the whole set, which has one bad property
+ * that swamps every good one: the last word you have not met yet is as
+ * likely as any of the ones you have, so with twenty words in the set it
+ * takes about twenty Moves to meet the twentieth. The key waits on every
+ * word being introduced, so that tail is the run standing still.
+ *
+ * So the draw is weighted, on two axes:
+ *
+ *   - A word not yet met outweighs one you have. That is what makes the set
+ *     open up quickly rather than trickling out.
+ *   - Among words you have met, getting one wrong raises it and getting it
+ *     right lowers it. Answer well and the words you know fall away, which
+ *     leaves the unmet ones a larger share of the draw and brings the key
+ *     closer; answer badly and the ones you missed keep coming back, which
+ *     is when they should.
+ *
+ * Numbers are relative to `seenBase`, so they can be read as multiples: a
+ * word missed once is about three times as likely as one never attempted,
+ * and one answered right twice is about a sixth as likely.
+ */
+export const wordPacing = {
+  /** A word this run has never asked about. */
+  unseen: 6,
+  /** Met, but never actually answered — the Magic Room introduces words this way. */
+  seenBase: 1,
+  /** Added per wrong answer. */
+  missWeight: 1.2,
+  /** Taken off per right answer. */
+  masteryDrop: 0.45,
+  /** A word already known never falls out of the run entirely. */
+  minSeen: 0.15,
+  /** However badly it is going, no single word may take over the draw. */
+  maxSeen: 4,
+  /**
+   * Applied to the word just asked.
+   *
+   * Mild on purpose. A word you just got wrong should come back soon — that
+   * is the point — but the same word three prompts running reads as the
+   * dungeon being stuck rather than as being drilled, and at a 3x miss
+   * weight that is exactly what an undamped draw produces.
+   */
+  repeatDamp: 0.5,
+} as const
+

@@ -1,6 +1,7 @@
 import type { Spell } from '@/domain/spell'
 import type { BattleState, DefenseSequence, EnemyCombatant, PlateauRequirement } from '@/domain/battle'
 import type { Challenge } from '@/domain/challenge'
+import type { WordRunStats } from '@/domain/dungeon'
 import { battleBalance, type DungeonTierDef } from '@/config/balance'
 import { mimicBalance } from '@/config/dungeonEvents'
 import type { WorldPack } from '@/config/worldManifest'
@@ -10,6 +11,7 @@ import { generateChallenge, resolveChallenge, type ChallengeResolution } from '.
 import { buildPlateau, clearRequirement, isFullyCleared } from './bossPlateau'
 import { damageForSpell } from './spellProgression'
 import { makeId } from './idGen'
+import { pickRunWord } from './wordStats'
 
 /**
  * Turn-based battle state machine. Pure functions only — React components
@@ -235,6 +237,12 @@ export function beginEnemyChallenge(
   dungeonSpells: Spell[],
   timerSeconds: number,
   rng: () => number = Math.random,
+  /**
+   * The run's word record, so a volley draws by the same weighting the
+   * dungeon's own events use. Omitted, the draw falls back to even — which
+   * is what a caller without a run in hand should get.
+   */
+  wordStats: Record<string, WordRunStats> = {},
 ): BattleState {
   if (dungeonSpells.length === 0) {
     return { ...state, phase: 'enemy_intro', activeChallenge: null, defense: null, timer: null }
@@ -245,9 +253,18 @@ export function beginEnemyChallenge(
   const used = new Set<string>()
   for (let i = 0; i < count; i++) {
     // Prefer distinct words per attack, but never loop forever on a tiny pool.
-    let spell = dungeonSpells[Math.floor(rng() * dungeonSpells.length)]
+    const draw = () => {
+      const id = pickRunWord(
+        dungeonSpells.map((s) => s.id),
+        wordStats,
+        rng,
+        state.lastChallenge?.spellId ?? null,
+      )
+      return dungeonSpells.find((s) => s.id === id) ?? dungeonSpells[0]
+    }
+    let spell = draw()
     for (let tries = 0; tries < 8 && used.has(spell.id) && used.size < dungeonSpells.length; tries++) {
-      spell = dungeonSpells[Math.floor(rng() * dungeonSpells.length)]
+      spell = draw()
     }
     used.add(spell.id)
     challenges.push(generateChallenge(spell, 'defense', 'kor_to_eng'))

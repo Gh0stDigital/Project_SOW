@@ -1,5 +1,6 @@
 import type { DungeonRunState, WordRunStats } from '@/domain/dungeon'
 import { emptyWordStats } from '@/domain/dungeon'
+import { wordPacing } from '@/config/balance'
 
 /**
  * Per-run vocabulary tracking.
@@ -78,3 +79,75 @@ export function strugglingWords(run: DungeonRunState): WordRunStats[] {
     .filter((s): s is WordRunStats => !!s && s.correct + s.incorrect > 0 && s.incorrect >= s.correct)
     .sort((a, b) => b.incorrect - a.incorrect)
 }
+
+// ---------------------------------------------------------------------------
+// Which word to ask about next
+// ---------------------------------------------------------------------------
+
+/**
+ * How likely one word is to be the next one asked about.
+ *
+ * See config/balance.ts `wordPacing` for what the numbers mean and why. A
+ * word with no stats at all counts as unseen, which is the right answer for
+ * a pool id the run has somehow not initialised.
+ */
+export function wordWeight(stats: WordRunStats | undefined): number {
+  if (!stats || !stats.introduced) return wordPacing.unseen
+  const raw =
+    wordPacing.seenBase + wordPacing.missWeight * stats.incorrect - wordPacing.masteryDrop * stats.correct
+  return Math.min(wordPacing.maxSeen, Math.max(wordPacing.minSeen, raw))
+}
+
+/**
+ * The next word to ask about, drawn by weight rather than evenly.
+ *
+ * `avoid` is the word the previous prompt used; it is damped rather than
+ * excluded, so a word just answered wrong can still come straight back —
+ * just not every time.
+ *
+ * Returns null only for an empty pool. The caller decides what that means;
+ * here it is simply "there is nothing to ask about".
+ */
+export function pickRunWord(
+  pool: string[],
+  stats: Record<string, WordRunStats>,
+  rng: () => number,
+  avoid?: string | null,
+): string | null {
+  if (pool.length === 0) return null
+  if (pool.length === 1) return pool[0]
+
+  const weights = pool.map((id) => {
+    const w = wordWeight(stats[id])
+    return id === avoid ? w * wordPacing.repeatDamp : w
+  })
+  const total = weights.reduce((sum, w) => sum + w, 0)
+  // Every weight is floored above zero, so this cannot happen — but a total
+  // of zero would make the walk below return nothing, and falling back to an
+  // even draw is better than returning the last element by accident.
+  if (total <= 0) return pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))]
+
+  let roll = rng() * total
+  for (let i = 0; i < pool.length; i++) {
+    roll -= weights[i]
+    if (roll <= 0) return pool[i]
+  }
+  return pool[pool.length - 1]
+}
+
+/** What share of the next draw each word holds — for tests and tuning. */
+export function drawShares(
+  pool: string[],
+  stats: Record<string, WordRunStats>,
+  avoid?: string | null,
+): Record<string, number> {
+  const weights = pool.map((id) => {
+    const w = wordWeight(stats[id])
+    return id === avoid ? w * wordPacing.repeatDamp : w
+  })
+  const total = weights.reduce((sum, w) => sum + w, 0)
+  const out: Record<string, number> = {}
+  pool.forEach((id, i) => { out[id] = total > 0 ? weights[i] / total : 0 })
+  return out
+}
+

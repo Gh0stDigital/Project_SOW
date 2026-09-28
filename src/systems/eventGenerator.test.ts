@@ -5,6 +5,7 @@ const base: EventRollContext = {
   history: [],
   modifiers: [],
   bossDoorFound: false,
+  restAreaFound: false,
   keyRoomSeen: true, // the Key Room is already out of the way
   keyRoomUnlocked: false,
   keyRoomPressure: 0,
@@ -65,3 +66,27 @@ describe('finding the Boss Door', () => {
     expect(others.length).toBeGreaterThan(0)
   })
 })
+
+describe('a rest area that has already been found', () => {
+  it('stops being rolled at all', () => {
+    // Finding one puts it on the destinations menu, so it is somewhere the
+    // player can walk to whenever they like. Rolling it again spends a Move
+    // on a room they already had.
+    const d = distribution({ ...base, restAreaFound: true })
+    expect(d.rest ?? 0).toBe(0)
+  })
+
+  it('still turns up before one has been found', () => {
+    expect(distribution(base).rest ?? 0).toBeGreaterThan(0)
+  })
+
+  it('leaves something to roll when it is the last type standing', () => {
+    // The fallback that ignores the anti-repeat rule has to drop the rest
+    // area too, or a table narrowed to nothing but rest would hand one back.
+    const only = { ...base, restAreaFound: true, history: ['battle', 'battle'] as never }
+    const d = distribution(only as never)
+    expect(d.rest ?? 0).toBe(0)
+    expect(Object.values(d).reduce((a, b) => a + b, 0)).toBeGreaterThan(0)
+  })
+})
+

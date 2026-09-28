@@ -21,7 +21,7 @@ import { rollEvent } from './eventGenerator'
 import { eventDefinitions } from './eventContent'
 import { generateChallenge } from './challengeEngine'
 import { tickModifiers, addModifier as addModifierTo } from './directionModifiers'
-import { initWordStats, markIntroduced, recordAttempt, type AttemptKind } from './wordStats'
+import { initWordStats, markIntroduced, pickRunWord, recordAttempt, type AttemptKind } from './wordStats'
 import { transition } from './dungeonState'
 import { makeId } from './idGen'
 import { resolveWorld, pickSlot } from './worldRegistry'
@@ -123,8 +123,22 @@ export function setStandbyNotice(run: DungeonRunState, notice: string | null): D
 // Movement + event generation
 // ---------------------------------------------------------------------------
 
-function pickRandomSpell(spells: Spell[], rng: () => number): Spell {
-  return spells[Math.floor(rng() * spells.length)]
+/**
+ * The word this event asks about.
+ *
+ * Weighted by how the run has gone so far rather than drawn evenly — see
+ * systems/wordStats.ts. The word the previous event used is passed as the
+ * one to damp, so the same prompt does not come round twice running more
+ * often than it has to.
+ */
+function pickEventSpell(run: DungeonRunState, spells: Spell[], rng: () => number): Spell {
+  const id = pickRunWord(
+    spells.map((s) => s.id),
+    run.wordStats,
+    rng,
+    run.currentEvent?.challenge?.spellId ?? null,
+  )
+  return spells.find((s) => s.id === id) ?? spells[0]
 }
 
 function buildDirectionChoices(rng: () => number): DirectionChoice[] {
@@ -165,6 +179,7 @@ export function generateNextEvent(
       history: run.eventHistory,
       modifiers: run.modifiers,
       bossDoorFound: run.bossDoorFound,
+      restAreaFound: run.restAreaFound,
       keyRoomSeen: run.keyRoomSeen,
       keyRoomUnlocked: run.keyRoomUnlocked,
       keyRoomPressure: run.keyRoomPressure,
@@ -175,7 +190,7 @@ export function generateNextEvent(
 
   const type = roll.type
   const def = eventDefinitions[type]
-  const spell = def.hasChallenge && dungeonSpells.length > 0 ? pickRandomSpell(dungeonSpells, rng) : null
+  const spell = def.hasChallenge && dungeonSpells.length > 0 ? pickEventSpell(run, dungeonSpells, rng) : null
 
   // Treasure asks for the Korean word (attack-style); traps ask for the
   // English meaning under a timer (defense-style).
