@@ -12,8 +12,22 @@
 // ---------------------------------------------------------------------------
 
 export const spellBalance = {
-  /** Spell level cannot exceed this in the prototype. */
-  maxLevel: 20,
+  /**
+   * The ceiling on a word's level.
+   *
+   * A level here is how far a word is charged, not how far it has grown. It
+   * climbs on a right answer, falls on a wrong one, and once it reaches the
+   * cap it stays there putting out its full effect — there is no rank beyond
+   * this one to grind towards.
+   *
+   * It used to be 20, which made the word itself the game's power curve: a
+   * word answered 90 times hit for 38 and one answered 333 times hit for 68,
+   * against enemies who have between 36 and 42 HP whatever the tier. Past
+   * roughly level 10 every ordinary fight was one hit, so the thing that
+   * decided how a battle went was how long that word had been studied. 7
+   * puts the top of the range next to the enemies who have to absorb it.
+   */
+  maxLevel: 7,
   /** XP required to go from level N to N+1 = base + perLevel * N. */
   xpToNextLevel(level: number): number {
     return 20 + level * 12
