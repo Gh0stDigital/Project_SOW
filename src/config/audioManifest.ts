@@ -20,7 +20,7 @@ export const worldMusic: Readonly<Record<string, readonly string[]>> = {}
  * starts and keeps it until the next run, so a dungeon sounds the same all
  * the way through and different the next time.
  */
-export const musicPools: Readonly<Record<string, readonly string[]>> = {}
+export const musicPools: Readonly<Record<string, readonly string[]>> = {"dungeon":["dungeon/Masashi Hamauzu - Topic - DG”sadness”","dungeon/Masashi Hamauzu - Topic - 大いなる目的へ"]}
 
 /**
  * The file behind each cue, keyed by its path from public/. Cue names are
@@ -60,5 +60,7 @@ export const audioFiles: Readonly<Record<string, string>> = {
   "audio/sfx/shrine": "shrine.mp3",
   "audio/sfx/trapTrigger": "trapTrigger.mp3",
   "audio/sfx/victory": "victory.mp3",
-  "audio/sfx/wrong": "wrong.mp3"
+  "audio/sfx/wrong": "wrong.mp3",
+  "audio/music/dungeon/Masashi Hamauzu - Topic - DG”sadness”": "dungeon/Masashi Hamauzu - Topic - DG”sadness”.mp3",
+  "audio/music/dungeon/Masashi Hamauzu - Topic - 大いなる目的へ": "dungeon/Masashi Hamauzu - Topic - 大いなる目的へ.mp3"
 }
