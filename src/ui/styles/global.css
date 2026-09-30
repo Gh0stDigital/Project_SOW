@@ -3478,23 +3478,59 @@ button.totem-hero-frame {
 }
 
 .shop-counter {
-  position: relative;
-  margin-top: 8px;
-  padding: 16px 12px 12px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: var(--bevel), var(--frame);
+  /* She stays put while the list under her scrolls. The keeper is the thing
+     that explains whatever you are looking at, so scrolling away from her to
+     read a line about what you are scrolling through is exactly backwards.
+     `.screen-scroll` is the scrolling ancestor and nothing between here and
+     it clips, so this sticks to the top of the scrolling area. */
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin-top: 4px;
+  /* Opaque, because sticky over a transparent background would let the list
+     slide through her. This is the page's own colour rather than a panel —
+     no border, no bevel, no radius — so it reads as the screen and not as
+     the window that used to be behind her. The bleed either side covers the
+     screen's own 16px padding, so nothing shows up the margins. */
+  margin-inline: -16px;
+  padding: 4px 16px 0;
+  background: var(--bg-deep);
 }
 
-/* The shop's name, hung over the counter rather than set as a page title —
-   a heading would read as one more section of the Compendium, which is the
-   thing this screen is trying to stop feeling like. */
-.shop-sign {
+/* The scroll container has its own top padding, and a sticky child pins
+   just below it — which leaves a band above her where the list scrolls
+   through in full view. This covers that band: it is part of the sticky box,
+   so it travels with her and is only over the padding once she is pinned. */
+.shop-counter::before {
+  content: '';
   position: absolute;
-  top: -10px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: max(20px, env(safe-area-inset-top));
+  background: var(--bg-deep);
+}
+
+/* A short fade under it, so the list slips out of sight rather than being
+   chopped off at a hard line. */
+.shop-counter::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: 12px;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--bg-deep), transparent);
+}
+
+/* The shop's board. It used to hang on the panel behind her; with the panel
+   gone it simply sits above, centred, so it reads as signage rather than as
+   a label stuck to nothing. */
+.shop-sign {
+  display: block;
+  width: fit-content;
+  margin: 0 auto 6px;
   padding: 2px 14px;
   font-size: 12px;
   font-weight: 700;
@@ -3513,16 +3549,15 @@ button.totem-hero-frame {
      back at her — she is speaking, not standing beside a caption. */
   align-items: flex-start;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .shop-portrait {
   flex: 0 0 auto;
   width: 124px;
-  /* No box. The art is cut out on transparency, so she stands on the
-     counter's own wood rather than inside a bordered square — a frame round
-     a cut-out figure reads as an avatar chip, which is the thing this screen
-     stopped being. */
+  /* No box and nothing behind her. The art is cut out on transparency, so
+     she stands on the screen itself — a frame round a cut-out figure reads
+     as an avatar chip, which is the thing this screen stopped being. */
   line-height: 0;
   filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
   transition: filter 220ms ease;
@@ -3565,12 +3600,13 @@ button.totem-hero-frame {
   content: '';
   position: absolute;
   top: 18px;
-  left: -6px;
+  right: -6px;
   width: 10px;
   height: 10px;
   transform: rotate(45deg);
-  border-left: 1px solid var(--border-soft);
-  border-bottom: 1px solid var(--border-soft);
+  /* Pointing right, at whoever is standing there. */
+  border-right: 1px solid var(--border-soft);
+  border-top: 1px solid var(--border-soft);
   background: var(--bg-card);
 }
 
@@ -3581,8 +3617,8 @@ button.totem-hero-frame {
 
 .shop-speech.mood-pleased::before,
 .shop-speech.mood-done::before {
-  border-left-color: var(--accent-gold);
-  border-bottom-color: var(--accent-gold);
+  border-right-color: var(--accent-gold);
+  border-top-color: var(--accent-gold);
 }
 
 .shop-speech.mood-concerned {
@@ -3590,8 +3626,8 @@ button.totem-hero-frame {
 }
 
 .shop-speech.mood-concerned::before {
-  border-left-color: var(--accent-red);
-  border-bottom-color: var(--accent-red);
+  border-right-color: var(--accent-red);
+  border-top-color: var(--accent-red);
 }
 
 .shop-speech-name {
@@ -3621,6 +3657,43 @@ button.totem-hero-frame {
    so is coloured rather than left as another grey subtitle. */
 .faint.warn {
   color: var(--accent-gold);
+}
+
+/* The cursor that trails the text being typed out. Blinks only while it is
+   there, which is while she is still talking. */
+.shop-caret {
+  display: inline-block;
+  width: 0.5em;
+  height: 1em;
+  margin-left: 1px;
+  vertical-align: -0.12em;
+  background: var(--accent-gold);
+  opacity: 0.85;
+  animation: shop-caret-blink 900ms steps(2, start) infinite;
+}
+
+@keyframes shop-caret-blink {
+  to {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-caret {
+    animation: none;
+  }
+}
+
+/* Tapping the bubble finishes the line early. */
+.shop-speech {
+  cursor: pointer;
+}
+
+/* The line reserves its height so the bubble does not grow and shove the
+   page down one character at a time while she is speaking. */
+.shop-line,
+.shop-hint {
+  min-height: 1.45em;
 }
 
 /* The tools behind the counter: a wrapping shelf rather than three fixed
