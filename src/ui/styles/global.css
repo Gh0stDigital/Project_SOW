@@ -3614,6 +3614,13 @@ button.totem-hero-frame {
   color: var(--text-secondary);
 }
 
+/* A count that is not yet enough — a set too small to take anywhere. The
+   number alone does not say whether it is a problem, so the line that says
+   so is coloured rather than left as another grey subtitle. */
+.faint.warn {
+  color: var(--accent-gold);
+}
+
 /* The tools behind the counter: a wrapping shelf rather than three fixed
    rows of paired buttons, so adding one does not push the counter itself
    off a short screen. */

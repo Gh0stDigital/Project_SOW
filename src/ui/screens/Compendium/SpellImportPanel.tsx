@@ -10,8 +10,8 @@ import {
 } from '@/systems/spellImport'
 import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
-import { AssetImage } from '@/ui/components/AssetImage'
-import { emptyCounter, keeperSpeech, SHOP_KEEPER_NAME, SHOP_SIGN } from '@/systems/wordShop'
+import { ShopKeeper } from '@/ui/components/ShopKeeper'
+import { emptyCounter } from '@/systems/wordShop'
 
 /** Saves text as a local file via a throwaway object URL — no network involved. */
 function downloadTextFile(filename: string, content: string, mime: string) {
@@ -119,33 +119,25 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
 
   // Everything the keeper looks at. Derived rather than stored, so what
   // they say follows the counter as it is typed into.
-  const speech = keeperSpeech({
-    ...emptyCounter(),
-    hasText: hasContent,
-    ready: result.ok.length,
-    fills: result.fills.length,
-    duplicates: Math.max(0, result.duplicates.length - result.fills.length),
-    errors: result.errors.length,
-    hasHeader: (result.headerColumns?.length ?? 0) > 0,
-    withExamples: result.ok.filter((r) => r.input.sampleSentence?.trim()).length,
-    imported,
-    filled,
-  })
-
   const counter = (
-    <div className="shop-counter">
-      <div className="shop-sign">{SHOP_SIGN}</div>
-      <div className="shop-keeper">
-        <div className={`shop-portrait mood-${speech.mood}`}>
-          <AssetImage category="shop" assetKey="keeper" alt={SHOP_KEEPER_NAME} className="shop-portrait-img" />
-        </div>
-        <div className={`shop-speech mood-${speech.mood}`}>
-          <div className="shop-speech-name">{SHOP_KEEPER_NAME}</div>
-          <p className="shop-line">{speech.line}</p>
-          {speech.hint && <p className="shop-hint">{speech.hint}</p>}
-        </div>
-      </div>
-    </div>
+    <ShopKeeper
+      sign
+      place={{
+        at: 'shop',
+        counter: {
+          ...emptyCounter(),
+          hasText: hasContent,
+          ready: result.ok.length,
+          fills: result.fills.length,
+          duplicates: Math.max(0, result.duplicates.length - result.fills.length),
+          errors: result.errors.length,
+          hasHeader: (result.headerColumns?.length ?? 0) > 0,
+          withExamples: result.ok.filter((r) => r.input.sampleSentence?.trim()).length,
+          imported,
+          filled,
+        },
+      }}
+    />
   )
 
   if (imported !== null) {

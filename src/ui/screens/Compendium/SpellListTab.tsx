@@ -11,6 +11,7 @@ import { definitionsOf } from '@/domain/spell'
 import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
 import { UiIcon } from '@/ui/components/UiIcon'
+import { ShopKeeper } from '@/ui/components/ShopKeeper'
 
 interface SpellListTabProps {
   /**
@@ -53,6 +54,19 @@ export function SpellListTab({ onSubScreen }: SpellListTabProps = {}) {
 
   return (
     <div className="list">
+      {/* The keeper stands in every part of the Compendium, not only at the
+          import counter — this is their shop, and the shelves are the part
+          of it the player spends most time in front of. */}
+      <ShopKeeper
+        place={{
+          at: 'words',
+          total: spells.length,
+          shown: filtered.length,
+          searching: q.length > 0,
+          withoutExample: spells.filter((sp) => !sp.sampleSentence?.trim()).length,
+        }}
+      />
+
       <div className="btn-row">
         <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => enter('new')}>
           + 새 주문 단어

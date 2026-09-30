@@ -11,6 +11,7 @@ import {
   type WordType,
 } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
+import { ShopKeeper } from '@/ui/components/ShopKeeper'
 
 interface SpellEditorFormProps {
   existing?: Spell
@@ -85,6 +86,18 @@ export function SpellEditorForm({ existing, onDone, onCancel }: SpellEditorFormP
 
   return (
     <div className="list spell-editor">
+      {/* The keeper at the writing desk. What a new entry actually requires
+          used to be discoverable only by pressing save and being refused. */}
+      <ShopKeeper
+        place={{
+          at: 'editor',
+          isNew: !existing,
+          hasHeadword: korean.trim().length > 0,
+          hasMeaning: english.trim().length > 0,
+          hasExample: sampleSentence.trim().length > 0,
+        }}
+      />
+
       <div className="field">
         <label htmlFor="kor-input">단어</label>
         <input

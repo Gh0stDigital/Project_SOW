@@ -1,5 +1,5 @@
 /**
- * The word shop's keeper, and what they say while you are at the counter.
+ * The Compendium's keeper, and what they say wherever you are in it.
  *
  * Importing vocabulary used to be a form: a textarea, four rows of buttons,
  * and a paragraph of instructions above them that had to be read before
@@ -11,6 +11,14 @@
  * they can see when something is on it, which lines they cannot read, and
  * what they are about to take. The help arrives while it is needed rather
  * than all at once before anything has happened.
+ *
+ * They are not only at the import counter. The Compendium is their shop —
+ * the shelves of words, the sets bundled for a run, the desk where one is
+ * written out — and they have something to say in each of those places,
+ * because each one has a question the player is actually asking: how many
+ * have I got, why can I not take this set into a dungeon, what does this
+ * form need before it will save. The same face and the same bubble in every
+ * room is what makes it one shop rather than four screens.
  *
  * Pure — no React, no store, no art. The screen renders whatever this
  * returns.
@@ -99,7 +107,7 @@ export function emptyCounter(): CounterState {
  * format explained, a file that mostly reads needs its count, and the
  * awkward middle needs to know which lines were dropped.
  */
-export function keeperSpeech(state: CounterState): KeeperSpeech {
+export function counterSpeech(state: CounterState): KeeperSpeech {
   // 1. The sale is done.
   if (state.imported !== null) {
     if (state.imported === 0 && state.filled > 0) {
@@ -197,4 +205,173 @@ function hintForCleanFile(state: CounterState): string | null {
     return `${state.ready}개 중 ${state.withExamples}개에만 예문이 있습니다.`
   }
   return '예문까지 모두 갖췄습니다. 이대로면 던전에서 바로 쓸 수 있겠군요.'
+}
+
+// ---------------------------------------------------------------------------
+// Everywhere else in the Compendium
+// ---------------------------------------------------------------------------
+
+/**
+ * Where in the shop the player is standing, and the few facts the keeper
+ * would notice from there.
+ *
+ * A closed set of places rather than a bag of optional fields, so adding a
+ * room to the Compendium forces a line to go with it instead of silently
+ * inheriting somebody else's.
+ */
+export type CompendiumPlace =
+  /** At the counter, bringing words in. */
+  | { at: 'shop'; counter: CounterState }
+  /** Among the shelves — the list of every word known. */
+  | {
+      at: 'words'
+      total: number
+      /** How many the current search leaves visible. */
+      shown: number
+      searching: boolean
+      /** Of the total, how many carry no example sentence. */
+      withoutExample: number
+    }
+  /** Among the bundles — the spell sets. */
+  | {
+      at: 'sets'
+      sets: number
+      /** Sets holding too few words to take into the shallowest dungeon. */
+      belowMinimum: number
+      /** How many words a set needs before a dungeon will accept it. */
+      minimumForDungeon: number
+    }
+  /** At the desk, writing one word out. */
+  | { at: 'editor'; isNew: boolean; hasHeadword: boolean; hasMeaning: boolean; hasExample: boolean }
+  /** At the bench, bundling a set. */
+  | { at: 'setEditor'; picked: number; available: number; minimumForDungeon: number; isNew: boolean }
+
+/** What the keeper says in whichever part of the Compendium is open. */
+export function keeperSpeech(place: CompendiumPlace): KeeperSpeech {
+  switch (place.at) {
+    case 'shop':
+      return counterSpeech(place.counter)
+    case 'words':
+      return shelfSpeech(place)
+    case 'sets':
+      return bundleSpeech(place)
+    case 'editor':
+      return deskSpeech(place)
+    case 'setEditor':
+      return benchSpeech(place)
+  }
+}
+
+function shelfSpeech(place: Extract<CompendiumPlace, { at: 'words' }>): KeeperSpeech {
+  if (place.total === 0) {
+    return {
+      mood: 'idle',
+      line: '장부가 아직 비어 있습니다. 낱말이 있어야 던전에 가져갈 것도 있지요.',
+      hint: '낱말 상점에서 목록을 한 번에 들여오시거나, 직접 한 낱말씩 적어 넣으세요.',
+    }
+  }
+  if (place.searching) {
+    if (place.shown === 0) {
+      return {
+        mood: 'concerned',
+        line: '그런 낱말은 장부에 없군요.',
+        hint: '한국어로도, 뜻으로도 찾을 수 있습니다.',
+      }
+    }
+    return { mood: 'reading', line: `${place.shown}개 찾았습니다.`, hint: null }
+  }
+  if (place.withoutExample > 0) {
+    return {
+      mood: 'reading',
+      line: `낱말 ${place.total}개를 맡고 있습니다.`,
+      // The one thing on this screen the player can act on, and the reason
+      // it matters is elsewhere in the game — so it says where.
+      hint: `그중 ${place.withoutExample}개에 예문이 없습니다. 예문은 던전에서 단어를 물을 때 쓰입니다.`,
+    }
+  }
+  return {
+    mood: 'pleased',
+    line: `낱말 ${place.total}개, 하나도 빠짐없이 예문까지 갖췄습니다.`,
+    hint: null,
+  }
+}
+
+function bundleSpeech(place: Extract<CompendiumPlace, { at: 'sets' }>): KeeperSpeech {
+  if (place.sets === 0) {
+    return {
+      mood: 'idle',
+      line: '묶어 둔 세트가 아직 없습니다.',
+      hint: `던전은 세트 단위로 받습니다 — 낱말 ${place.minimumForDungeon}개 이상인 세트가 하나는 있어야 들어갈 수 있습니다.`,
+    }
+  }
+  if (place.belowMinimum > 0) {
+    return {
+      mood: 'concerned',
+      line: `세트 ${place.sets}개 중 ${place.belowMinimum}개는 낱말이 모자랍니다.`,
+      hint: `가장 얕은 던전도 낱말 ${place.minimumForDungeon}개부터 받습니다.`,
+    }
+  }
+  return {
+    mood: 'pleased',
+    line: `세트 ${place.sets}개, 모두 던전에 들고 갈 만합니다.`,
+    hint: null,
+  }
+}
+
+function deskSpeech(place: Extract<CompendiumPlace, { at: 'editor' }>): KeeperSpeech {
+  const named = place.hasHeadword && place.hasMeaning
+  if (!named) {
+    if (!place.hasHeadword && !place.hasMeaning) {
+      return {
+        mood: 'idle',
+        line: place.isNew ? '새 낱말이군요. 받아 적겠습니다.' : '고치시는 중이군요.',
+        hint: '한국어와 뜻 1, 그 둘만 있으면 장부에 올릴 수 있습니다. 나머지는 언제든 나중에요.',
+      }
+    }
+    return {
+      mood: 'concerned',
+      line: place.hasHeadword ? '뜻이 아직 비어 있습니다.' : '한국어 쪽이 아직 비어 있습니다.',
+      hint: '이 둘은 꼭 있어야 합니다 — 던전이 물어볼 것과, 답으로 받아 줄 것이니까요.',
+    }
+  }
+  if (!place.hasExample) {
+    return {
+      mood: 'reading',
+      line: '이대로도 올릴 수 있습니다.',
+      hint: '예문을 한 줄 적어 두시면 던전에서 이 낱말을 물을 때 함께 보여 줍니다.',
+    }
+  }
+  return { mood: 'pleased', line: '예문까지 갖췄군요. 이대로면 훌륭합니다.', hint: null }
+}
+
+function benchSpeech(place: Extract<CompendiumPlace, { at: 'setEditor' }>): KeeperSpeech {
+  if (place.available === 0) {
+    return {
+      mood: 'concerned',
+      line: '묶을 낱말이 없습니다.',
+      hint: '먼저 장부에 낱말을 채워 주세요.',
+    }
+  }
+  if (place.picked === 0) {
+    return {
+      mood: 'idle',
+      line: place.isNew ? '어떤 낱말을 묶으시겠습니까?' : '세트를 고쳐 보시지요.',
+      hint: `던전에 들고 가려면 ${place.minimumForDungeon}개 이상 골라야 합니다.`,
+    }
+  }
+  if (place.picked < place.minimumForDungeon) {
+    const short = place.minimumForDungeon - place.picked
+    return {
+      mood: 'concerned',
+      line: `${place.picked}개 골랐습니다 — ${short}개 더 있어야 던전에 들어갑니다.`,
+      hint: null,
+    }
+  }
+  return {
+    mood: 'pleased',
+    line: `${place.picked}개. 이만하면 던전에 들고 갈 수 있습니다.`,
+    // Said once the set is usable rather than at the start, where it would
+    // be one more rule to read before anything had been chosen.
+    hint: '많이 담으면 여러 낱말을 골고루, 적게 담으면 같은 낱말을 자주 만납니다.',
+  }
 }

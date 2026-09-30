@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { SpellSet } from '@/domain/spellSet'
 import { usePersistentStore } from '@/state/persistentStore'
+import { ShopKeeper } from '@/ui/components/ShopKeeper'
+import { dungeonTiers, minimumSetSize } from '@/config/balance'
 
 interface SpellSetEditorProps {
   existing?: SpellSet
@@ -16,6 +18,7 @@ export function SpellSetEditor({ existing, onDone, onCancel }: SpellSetEditorPro
   const removeSpellFromSet = usePersistentStore((s) => s.removeSpellFromSet)
   const deleteSpellSet = usePersistentStore((s) => s.deleteSpellSet)
 
+  const minimum = minimumSetSize(dungeonTiers[0])
   const [name, setName] = useState(existing?.name ?? '')
   const [selected, setSelected] = useState<Set<string>>(new Set(existing?.spellIds ?? []))
 
@@ -41,6 +44,19 @@ export function SpellSetEditor({ existing, onDone, onCancel }: SpellSetEditorPro
 
   return (
     <div className="list">
+      {/* The keeper at the bench. The dungeon's floor on set size is the one
+          thing this screen can be wrong about, so it is said while choosing
+          rather than discovered at the dungeon door. */}
+      <ShopKeeper
+        place={{
+          at: 'setEditor',
+          picked: selected.size,
+          available: spells.length,
+          minimumForDungeon: minimum,
+          isNew: !existing,
+        }}
+      />
+
       <div className="field">
         <label htmlFor="set-name">세트 이름</label>
         <input id="set-name" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: 1과 동사" />
