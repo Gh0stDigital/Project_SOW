@@ -1386,6 +1386,48 @@ select:focus {
   }
 }
 
+/* ---- A screen whose header is held while its body scrolls --------------
+
+   `.screen-scroll` scrolls the whole screen, title bar included. That is
+   right for a page you read top to bottom, and wrong for one you browse:
+   the back button and the tab row slid up past the top edge and were cut
+   through the middle on the way, and changing tabs meant scrolling all the
+   way back up to reach them. Here the header is a held flex child and only
+   the body below it moves. */
+
+.compendium-header {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.screen-body {
+  /* Takes the leftover height and scrolls inside it. min-height:0 is what
+     lets a flex child be shorter than its content instead of pushing the
+     screen open. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  /* The screen's side padding moves inside the scroller, so content still
+     sits 16px in while anything bleeding to the edges — the keeper's band —
+     can still reach them. */
+  margin-inline: -16px;
+  padding-inline: 16px;
+  /* And its bottom padding, so the last card clears the home indicator
+     rather than stopping short of it with dead space underneath. */
+  margin-bottom: calc(-16px - env(safe-area-inset-bottom));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* A scrolling body must not squeeze its children either — same reason as
+   `.screen-scroll > *`. */
+.screen-body > * {
+  flex-shrink: 0;
+}
+
 /* ---- Main-menu Totem banner ---- */
 
 .totem-banner {
@@ -3484,16 +3526,12 @@ button.totem-hero-frame {
      `.screen-scroll` is the scrolling ancestor and nothing between here and
      it clips, so this sticks to the top of the scrolling area. */
   position: sticky;
-  /* Pinned a little ABOVE the scrollport's top edge rather than at it.
-     The scroll container carries its own top padding, and a child pinned at
-     top:0 lands below that padding — leaving a band where the list scrolls
-     past in full view. Sticking by exactly that padding puts her own
-     background over the band instead.
-     The first attempt covered it with a pseudo-element above her, which was
-     wrong in a way that only showed when nothing was scrolled: it painted
-     over whatever sat above her at all times, clipping the tab row here and
-     the screen title in the shop. */
-  top: calc(-1 * max(14px, env(safe-area-inset-top)));
+  /* `.screen-body` is the scrolling ancestor and carries no top padding of
+     its own, so pinning at its top edge leaves no band above her for the
+     list to show through. Earlier versions of this fought a gap that came
+     from the whole screen being the scroller, title bar and all; the header
+     is held separately now and the gap is gone with it. */
+  top: 0;
   z-index: 3;
   /* Opaque, because sticky over a transparent background would let the list
      slide through her. This is the page's own colour rather than a panel —
@@ -3501,11 +3539,7 @@ button.totem-hero-frame {
      the window that used to be behind her. The bleed either side covers the
      screen's own 16px padding, so nothing shows up the margins. */
   margin-inline: -16px;
-  /* Top padding matches how far above the scrollport she pins, so her
-     content sits in the same place it would have without any of this and
-     never ends up flush against the screen edge. */
-  padding: max(14px, env(safe-area-inset-top)) 16px 0;
-  margin-top: calc(-1 * max(14px, env(safe-area-inset-top)));
+  padding: 2px 16px 0;
   background: var(--bg-deep);
 }
 
@@ -3552,7 +3586,11 @@ button.totem-hero-frame {
 
 .shop-portrait {
   flex: 0 0 auto;
-  width: 148px;
+  /* Sized so the frame is about as tall as what she has to say. At 148 the
+     picture ran a good deal past the bottom of the bubble, and the gap left
+     beside it was the emptiest thing on the screen — and this band is held
+     over the list, so every pixel of it is one the list does not get. */
+  width: 124px;
   /* A thin frame, because the art is a scene now rather than a cut-out
      figure: it carries its own background, so without an edge it would bleed
      into the screen and read as a hole in the page. Thin and dark, like a
