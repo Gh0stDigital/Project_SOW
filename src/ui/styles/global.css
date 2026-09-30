@@ -1436,9 +1436,10 @@ select:focus {
    here — the smith has an icon where the keeper has a portrait, and his
    half of the screen is a price list rather than a word list. */
 
-/* He has no portrait yet, so his frame holds the workshop's own icon. Square
-   and centred, because an icon in a portrait-shaped hole reads as a missing
-   image. */
+/* Only on the fallback path, when his art is missing and the frame holds the
+   workshop's icon instead. Square and centred, because an icon left to sit
+   in a portrait-shaped hole reads as a broken image. With the art present
+   the frame is the keeper's, unchanged. */
 .smith-portrait {
   width: 96px;
   height: 96px;
@@ -1629,7 +1630,7 @@ select:focus {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   width: 100%;
   text-align: left;
   appearance: none;
@@ -1637,7 +1638,12 @@ select:focus {
   background: var(--surface-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 18px 16px 14px;
+  /* Tight on purpose. This banner is a status line, not the screen — it was
+     costing enough height that the menu below it overflowed a 430x932 phone
+     by a few pixels, with the destinations squeezed together to fit and the
+     spacer above the exit collapsed to nothing. It still says everything it
+     said before; it just stops being the largest thing on the menu. */
+  padding: 11px 14px 10px;
   margin-top: 8px;
   color: var(--text-primary);
   font-family: inherit;
@@ -1669,9 +1675,13 @@ select:focus {
 }
 
 .totem-banner .avatar-img {
-  width: 38%;
-  max-width: 132px;
-  min-width: 96px;
+  /* The portrait sets the banner's height — everything beside it is shorter
+     than it is — so this is the number that decides how much of the menu
+     the banner takes. Big enough to recognise who you are playing, and no
+     bigger; the Totem screen is where you go to look at them. */
+  width: 26%;
+  max-width: 94px;
+  min-width: 72px;
   flex-shrink: 0;
   border-radius: var(--radius-md);
   border: 1px solid var(--border-strong);
@@ -1687,14 +1697,14 @@ select:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .totem-banner-body .name-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 .totem-banner-body .name-row .name {

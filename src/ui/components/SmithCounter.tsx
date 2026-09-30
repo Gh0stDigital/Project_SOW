@@ -1,5 +1,7 @@
 import { useTypewriter } from '@/ui/hooks/useTypewriter'
+import { AssetImage } from './AssetImage'
 import { UiIcon } from './UiIcon'
+import { hasAsset } from '@/config/assets'
 import { smithSpeech, SMITH_NAME, WORKSHOP_SIGN, type WorkshopPlace } from '@/systems/blacksmith'
 
 interface SmithCounterProps {
@@ -29,13 +31,17 @@ function TypedLine({ text, className }: { text: string; className: string }) {
  *
  * Built out of the word shop's counter classes on purpose: both are places
  * with somebody in them, and two different-looking speech bubbles in one
- * game would read as two different games. He has no portrait yet, so the
- * workshop's own icon stands in his frame — the hammer and the ingot are
- * what the sign outside would show anyway.
+ * game would read as two different games.
+ *
+ * The portrait is checked for rather than assumed. Without the guard a
+ * missing file would fall back to whatever comes first in the shop folder —
+ * which is the word-shop keeper, so the wrong person would be standing at
+ * the forge. The workshop's own icon is the honest stand-in.
  */
 export function SmithCounter({ place, sign = false }: SmithCounterProps) {
   const speech = smithSpeech(place)
   const line = useTypewriter(speech.line)
+  const painted = hasAsset('shop', 'smith')
 
   return (
     <div className="shop-counter">
@@ -53,8 +59,12 @@ export function SmithCounter({ place, sign = false }: SmithCounterProps) {
             <TypedLine key={speech.hint} text={speech.hint} className="shop-hint" />
           )}
         </div>
-        <div className={`shop-portrait smith-portrait mood-${speech.mood}`}>
-          <UiIcon name="anvil" size={72} />
+        <div className={`shop-portrait mood-${speech.mood}${painted ? '' : ' smith-portrait'}`}>
+          {painted ? (
+            <AssetImage category="shop" assetKey="smith" alt={SMITH_NAME} className="shop-portrait-img" />
+          ) : (
+            <UiIcon name="anvil" size={72} />
+          )}
         </div>
       </div>
     </div>
