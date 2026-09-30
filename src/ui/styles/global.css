@@ -3554,34 +3554,41 @@ button.totem-hero-frame {
 
 .shop-portrait {
   flex: 0 0 auto;
-  width: 124px;
-  /* No box and nothing behind her. The art is cut out on transparency, so
-     she stands on the screen itself — a frame round a cut-out figure reads
-     as an avatar chip, which is the thing this screen stopped being. */
+  width: 148px;
+  /* A thin frame, because the art is a scene now rather than a cut-out
+     figure: it carries its own background, so without an edge it would bleed
+     into the screen and read as a hole in the page. Thin and dark, like a
+     picture on the shop's wall — not the heavy bevelled panel that used to
+     sit behind her. */
   line-height: 0;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
-  transition: filter 220ms ease;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--frame);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
 }
 
 .shop-portrait-img {
   width: 100%;
   height: auto;
-  /* Contained, never cropped: the book and the brush are most of what says
-     what she does here. */
-  object-fit: contain;
   display: block;
+  /* The art is pre-cropped to this slot's shape, so nothing is lost here and
+     the browser is only ever scaling it down. Pixelated keeps the pixel art
+     crisp rather than letting the downscale smear it. */
   image-rendering: pixelated;
 }
 
-/* Lit rather than framed, so one drawing carries every state. The bubble
-   beside her carries the rest of the signal. */
+/* The frame carries the mood, so one picture covers every state. */
 .shop-portrait.mood-pleased,
 .shop-portrait.mood-done {
-  filter: drop-shadow(0 0 10px var(--glow-gold)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 14px -4px var(--glow-gold), var(--frame);
 }
 
 .shop-portrait.mood-concerned {
-  filter: drop-shadow(0 0 9px rgba(224, 101, 79, 0.55)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  border-color: var(--accent-red);
 }
 
 /* A speech bubble, with its tail pointing back at whoever is talking. */
@@ -3712,7 +3719,7 @@ button.totem-hero-frame {
 
 @media (max-width: 380px) {
   .shop-portrait {
-    width: 100px;
+    width: 118px;
   }
 
   .shop-line {
