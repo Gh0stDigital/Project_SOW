@@ -344,7 +344,10 @@ src/
   ui/
     components/ Shared presentational components (SpellCard, Bar, TypewriterText,
                 TotemPanel, ProgressMeter, AssetImage, SlidePanel, TopBar).
-    screens/    MainMenu, Compendium, Totem, Records, and Dungeon —
+    screens/    MainMenu, Compendium, Totem, Workshop, Records, and Dungeon —
+                Workshop is the blacksmith's: one counter sells the materials
+                and treasures a run brought home, the other forges Totems
+                from them (recipes in config/forging.ts).
                 DungeonScreen routes to config / ExploreView / BattleView /
                 ResultsView; ExploreView in turn renders whichever event
                 view the run's state calls for (StandbyActions,

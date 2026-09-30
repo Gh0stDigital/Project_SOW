@@ -16,6 +16,7 @@ import { UiIcon } from '@/ui/components/UiIcon'
 const menuItems = [
   { screen: 'compendium' as const, icon: 'book' as const, label: '주문 불러오기 / 도감', desc: '주문 단어와 주문 세트를 만들고 정리합니다.' },
   { screen: 'totem' as const, icon: 'totem' as const, label: '토템', desc: '토템을 확인하고 전투용 주문 세트를 장착합니다.' },
+  { screen: 'workshop' as const, icon: 'anvil' as const, label: '대장간', desc: '재료와 보물을 팔고, 새 토템을 주조합니다.' },
   { screen: 'dungeon' as const, icon: 'key' as const, label: '던전', desc: '던전을 설정하고 탐험을 시작합니다.' },
   { screen: 'records' as const, icon: 'chart' as const, label: '기록', desc: '모든 주문 단어와 학습 통계를 살펴봅니다.' },
 ]

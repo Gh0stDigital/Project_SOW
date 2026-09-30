@@ -1428,6 +1428,201 @@ select:focus {
   flex-shrink: 0;
 }
 
+/* ---- The blacksmith's workshop -----------------------------------------
+
+   Built on the word shop's counter classes rather than beside them: both
+   are rooms with somebody in them, and a second speech bubble drawn its own
+   way would read as a second game. Only what is genuinely different lives
+   here — the smith has an icon where the keeper has a portrait, and his
+   half of the screen is a price list rather than a word list. */
+
+/* He has no portrait yet, so his frame holds the workshop's own icon. Square
+   and centred, because an icon in a portrait-shaped hole reads as a missing
+   image. */
+.smith-portrait {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+}
+
+/* What is in the purse, and what the bag would fetch — the two numbers
+   every decision on this screen is made against, so they sit above the
+   list rather than inside it. */
+.workshop-purse {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-weight: 700;
+}
+
+.material-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Treasure is money with a lid on it. The gold edge is the whole of the
+   "sell this one without thinking" advice the smith gives in words. */
+.material-row.kind-treasure {
+  border-color: var(--accent-gold);
+}
+
+.material-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  width: 26px;
+  text-align: center;
+}
+
+.material-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.material-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-weight: 700;
+}
+
+.material-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  color: var(--text-secondary);
+}
+
+.kind-treasure .material-tag {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+.material-desc {
+  margin: 2px 0 3px;
+}
+
+.material-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Two to a row at phone width: a design needs its portrait big enough to
+   recognise, and its progress bar wide enough to read as progress. */
+.forge-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.forge-design {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 10px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-panel);
+  color: inherit;
+  text-align: center;
+  appearance: none;
+  cursor: pointer;
+}
+
+.forge-design-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.forge-design-state {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.forge-design-state.ready {
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+/* The bar is the point of the tile: it says how close this Totem is without
+   the player having to open it. The tile centres its children, which makes
+   a bar with no intrinsic width collapse to a tick — so this one is told to
+   take the row. */
+.forge-design .bar-track {
+  width: 100%;
+  align-self: stretch;
+}
+
+.forge-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.forge-sheet-kind {
+  font-weight: 700;
+  color: var(--accent-gold);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.recipe-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+/* A satisfied line is quiet. The unmet ones are the list — the screen is
+   read to find out what is still missing, not what is already done. */
+.recipe-line.met {
+  border-color: var(--accent-gold);
+  opacity: 0.72;
+}
+
+.recipe-name {
+  flex: 1;
+  min-width: 0;
+}
+
+.recipe-count {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-red);
+}
+
+.recipe-count.met {
+  color: var(--accent-gold);
+}
+
+.recipe-mark {
+  color: var(--accent-gold);
+}
+
+.recipe-short {
+  font-size: 11px;
+}
+
 /* ---- Main-menu Totem banner ---- */
 
 .totem-banner {

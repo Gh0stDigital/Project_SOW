@@ -4,6 +4,7 @@ import { curtainTiming } from '@/config/transitions'
 import { useUiStore } from '@/state/uiStore'
 import { useDungeonStore } from '@/state/dungeonStore'
 import { getItemDef } from '@/config/items'
+import { findMaterialDef, getMaterialDef } from '@/config/materials'
 import { pct, type RunReport, type WordReportRow } from '@/systems/runResults'
 import type { ItemId } from '@/domain/item'
 import { SlidePanel } from '@/ui/components/SlidePanel'
@@ -148,10 +149,16 @@ function WordsPanel({ report, onClose }: { report: RunReport; onClose: () => voi
 }
 
 function HaulPanel({ report, onClose }: { report: RunReport; onClose: () => void }) {
-  const itemCounts = report.itemsCollected.reduce<Record<string, number>>((acc, id) => {
-    acc[id] = (acc[id] ?? 0) + 1
-    return acc
-  }, {})
+  const tally = (ids: readonly string[]) =>
+    ids.reduce<Record<string, number>>((acc, id) => {
+      acc[id] = (acc[id] ?? 0) + 1
+      return acc
+    }, {})
+  const itemCounts = tally(report.itemsCollected)
+  // Unknown ids are dropped rather than rendered blank — the bag does the
+  // same thing with them, so the haul should not promise something that
+  // will not be there.
+  const materialCounts = tally(report.materialsCollected.filter((id) => findMaterialDef(id)))
 
   return (
     <SlidePanel title="전리품" onClose={onClose}>
@@ -161,6 +168,22 @@ function HaulPanel({ report, onClose }: { report: RunReport; onClose: () => void
           <div className="reward-lines">
             {Object.entries(itemCounts).map(([id, count]) => {
               const def = getItemDef(id as ItemId)
+              return (
+                <span key={id} className="reward-line">
+                  {def.icon} {def.name} ×{count}
+                </span>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
+      {Object.keys(materialCounts).length > 0 && (
+        <section>
+          <h3>재료 & 보물</h3>
+          <div className="reward-lines">
+            {Object.entries(materialCounts).map(([id, count]) => {
+              const def = getMaterialDef(id)
               return (
                 <span key={id} className="reward-line">
                   {def.icon} {def.name} ×{count}

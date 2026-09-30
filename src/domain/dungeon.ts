@@ -115,12 +115,18 @@ export interface RewardBundle {
   money: number
   totemXp: number
   itemIds: string[]
+  /**
+   * Materials and treasures. Separate from `itemIds` because they go to a
+   * different bag and are spent in a different place — one is used in a
+   * room, the other is carried to the blacksmith.
+   */
+  materialIds: string[]
   /** Human-readable lines describing what was gained, for the reward panel. */
   lines: string[]
 }
 
 export function emptyRewardBundle(): RewardBundle {
-  return { money: 0, totemXp: 0, itemIds: [], lines: [] }
+  return { money: 0, totemXp: 0, itemIds: [], materialIds: [], lines: [] }
 }
 
 export interface RunStats {
@@ -138,6 +144,7 @@ export interface RunStats {
   defenseCorrect: number
   defenseTotal: number
   itemsCollected: string[]
+  materialsCollected: string[]
   /** Words whose charge meter climbed this run, and by how much. */
   chargeGains: { spellId: string; from: number; to: number }[]
   newlyMasteredWords: string[]
@@ -169,6 +176,7 @@ export function createEmptyRunStats(): RunStats {
     defenseCorrect: 0,
     defenseTotal: 0,
     itemsCollected: [],
+    materialsCollected: [],
     chargeGains: [],
     newlyMasteredWords: [],
     restsUsed: 0,

@@ -392,6 +392,7 @@ export function applyRewardBundle(run: DungeonRunState, reward: RewardBundle): D
       moneyEarned: run.stats.moneyEarned + reward.money,
       totemXpEarned: run.stats.totemXpEarned + reward.totemXp,
       itemsCollected: [...run.stats.itemsCollected, ...reward.itemIds],
+      materialsCollected: [...run.stats.materialsCollected, ...reward.materialIds],
       treasureCollected: run.stats.treasureCollected + (reward.money > 0 ? 1 : 0),
     },
   }

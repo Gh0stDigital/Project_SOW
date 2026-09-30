@@ -3,7 +3,7 @@
 // removed while it is running, and at the start of every build.
 
 export const assetManifest = {
-  icons: ['BookIcon', 'chartIcon', 'chestIcon', 'deckIcon', 'expIcon', 'heartIcon', 'keyIcon', 'moneyIcon', 'totemIcon', 'trashcanIcon'],
+  icons: ['anvilIcon', 'BookIcon', 'chartIcon', 'chestIcon', 'deckIcon', 'expIcon', 'heartIcon', 'keyIcon', 'moneyIcon', 'totemIcon', 'trashcanIcon'],
   shop: ['keeper'],
   spells: ['dark', 'earth', 'fire', 'light', 'water', 'wind'],
   totems: ['Dolbae', 'Magic_Parasite_Zoah', 'parasite_hunter_Yaharl', 'Silver Knight', 'TheExplorer', 'Thirthteeth_Knight'],
@@ -16,6 +16,7 @@ export const assetManifest = {
  * than reconstructed from the key.
  */
 export const assetFiles: Readonly<Record<string, string>> = {
+  "icons/anvilIcon": "anvilIcon.webp",
   "icons/BookIcon": "BookIcon.webp",
   "icons/chartIcon": "chartIcon.webp",
   "icons/chestIcon": "chestIcon.webp",

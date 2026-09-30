@@ -23,8 +23,13 @@ import {
   deleteSpellSet,
   pruneSpellFromAllSets,
 } from '@/systems/spellSetManager'
-import { createTotem, equipSpellSet, isUsable, STARTING_AVATAR } from '@/systems/totemManager'
+import { createTotem, equipSpellSet, isUsable, nameFromAvatarKey, STARTING_AVATAR } from '@/systems/totemManager'
 import { STARTING_TOTEM_KEY, isTotemUnlocked } from '@/config/progression'
+import type { MaterialEntry, MaterialId } from '@/domain/material'
+import { addMaterial, removeMaterial, countOfMaterial, sellPrice } from '@/systems/materials'
+import { findMaterialDef } from '@/config/materials'
+import { forgeRecipeFor } from '@/config/forging'
+import { payForRecipe } from '@/systems/forge'
 import { migrateSpells } from '@/systems/spellMigration'
 import { totemBalance } from '@/config/balance'
 
@@ -65,6 +70,23 @@ export interface PersistedData {
   settings: GameSettings
   lastDungeonSelection: DungeonSelectionDraft
   inventory: InventoryEntry[]
+  /**
+   * Materials and treasures, in one bag.
+   *
+   * Separate from `inventory` because the two answer different questions.
+   * An inventory entry is something you can use in a room mid-run; a
+   * material is something the blacksmith wants. Putting them together
+   * would mean every list of either having to filter the other out.
+   */
+  materials: MaterialEntry[]
+  /**
+   * Portraits the blacksmith has struck for this save.
+   *
+   * The build ships one open Totem (config/progression.ts); this is the
+   * rest, earned one forge at a time. Stored as the keys rather than as
+   * booleans per portrait so a save survives art being added or removed.
+   */
+  forgedTotemKeys: string[]
   /** Worlds and Totems the player has already been told about. */
   seenContent: SeenContent
 }
@@ -84,6 +106,8 @@ function defaultData(): PersistedData {
     settings: defaultSettings,
     lastDungeonSelection: { totemSpellSetId: null, dungeonSpellSetId: null, tierId: 'tier10' },
     inventory: itemBalance.startingInventory.map((e) => ({ ...e })),
+    materials: [],
+    forgedTotemKeys: [],
     // A brand-new save has seen everything shipping with it: a first launch
     // should not announce the whole catalogue as new.
     seenContent: markSeen(allWorlds, assetKeys('totems')),
@@ -109,7 +133,7 @@ function loadInitial(): PersistedData {
       // guessed at again on every render.
       // isTotemUnlocked() answers false for a key that names nothing, so
       // this covers both cases at once.
-      avatarKey: isTotemUnlocked(t.avatarKey) ? t.avatarKey : STARTING_AVATAR,
+      avatarKey: isTotemUnlocked(t.avatarKey, saved.forgedTotemKeys ?? []) ? t.avatarKey : STARTING_AVATAR,
       // A Totem still carrying the old default name is carrying the word
       // "totem", not a name somebody chose — nobody types that over the top
       // of a name they wanted. A name of their own is left alone.
@@ -135,6 +159,11 @@ function loadInitial(): PersistedData {
     settings: { ...defaults.settings, ...saved.settings },
     lastDungeonSelection: { ...defaults.lastDungeonSelection, ...saved.lastDungeonSelection },
     inventory: saved.inventory ?? defaults.inventory,
+    // The bag and the forged roster are both newer than some saves. An
+    // absent one means empty, which is exactly right: nothing was ever
+    // picked up, and nothing was ever struck.
+    materials: (saved.materials ?? defaults.materials).filter((e) => e.quantity > 0),
+    forgedTotemKeys: saved.forgedTotemKeys ?? defaults.forgedTotemKeys,
     // Saves written before this existed have seen nothing recorded, but they
     // have plainly seen the worlds that shipped with them — treat an absent
     // record as "everything current", so upgrading does not announce the
@@ -180,6 +209,24 @@ export interface PersistentStore extends PersistedData {
   addMoney(amount: number): void
   /** Spends up to `amount`, never below zero. Returns what was actually spent. */
   spendMoney(amount: number): number
+
+  /** Drops a material or treasure into the bag. */
+  grantMaterial(materialId: MaterialId, quantity?: number): void
+  /**
+   * Sells some of a stack at the blacksmith's. Returns what it fetched —
+   * zero if the bag did not hold that much, in which case nothing moves.
+   */
+  sellMaterial(materialId: MaterialId, quantity?: number): number
+  /** True when this portrait may be raised or worn by this save. */
+  isPortraitUnlocked(avatarKey: string): boolean
+  /**
+   * Pays a portrait's recipe and raises the Totem it makes.
+   *
+   * One action rather than unlock-then-create, because they are one
+   * transaction: a forge that took the materials and left the portrait
+   * locked would be the worst bug this screen could have.
+   */
+  forgeTotem(avatarKey: string, name?: string): Totem | null
 }
 
 export const usePersistentStore = create<PersistentStore>()((set, get) => ({
@@ -245,7 +292,7 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
   createTotem(name, avatarKey) {
     // A locked portrait is refused here as well as hidden in the picker, so
     // the lock is a rule of the save rather than a property of one screen.
-    const allowed = !!avatarKey && isTotemUnlocked(avatarKey)
+    const allowed = !!avatarKey && isTotemUnlocked(avatarKey, get().forgedTotemKeys)
     const totem = createTotem(name, allowed ? avatarKey : STARTING_AVATAR)
     // A newly raised Totem becomes the active one — otherwise a player
     // whose only Totem was destroyed would still have no one to play as.
@@ -253,7 +300,7 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
     return totem
   },
   setTotemAvatar(totemId, avatarKey) {
-    if (!isTotemUnlocked(avatarKey)) return
+    if (!isTotemUnlocked(avatarKey, get().forgedTotemKeys)) return
     set((state) => ({
       totems: state.totems.map((t) => (t.id === totemId ? { ...t, avatarKey } : t)),
     }))
@@ -298,6 +345,51 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
   addMoney(amount) {
     set((state) => ({ money: Math.max(0, state.money + Math.round(amount)) }))
   },
+
+  grantMaterial(materialId, quantity = 1) {
+    // An id this build has no definition for is dropped on the floor rather
+    // than stored: an unsellable, unusable stack is worse than no stack.
+    if (!findMaterialDef(materialId)) return
+    set((state) => ({ materials: addMaterial(state.materials, materialId, quantity) }))
+  },
+  sellMaterial(materialId, quantity = 1) {
+    const def = findMaterialDef(materialId)
+    if (!def || quantity <= 0) return 0
+    // Checked before the update rather than inside it, so the caller is told
+    // what it earned and a short sale is refused whole.
+    const have = countOfMaterial(get().materials, materialId)
+    if (have < quantity) return 0
+    const earned = sellPrice(def, quantity)
+    set((state) => ({
+      materials: removeMaterial(state.materials, materialId, quantity),
+      money: state.money + earned,
+    }))
+    return earned
+  },
+  isPortraitUnlocked(avatarKey) {
+    return isTotemUnlocked(avatarKey, get().forgedTotemKeys)
+  },
+  forgeTotem(avatarKey, name) {
+    const state = get()
+    const paid = payForRecipe(forgeRecipeFor(avatarKey), state.materials, state.money)
+    if (!paid.forged) return null
+
+    const totem = createTotem(name ?? nameFromAvatarKey(avatarKey), avatarKey)
+    set((s) => ({
+      materials: paid.bag,
+      money: paid.money,
+      // Recording the key the caller asked for, not the resolved one: the
+      // lookup that reads this list resolves both sides, and storing the
+      // spelling that was asked for keeps the list readable in a dump.
+      forgedTotemKeys: s.forgedTotemKeys.includes(avatarKey)
+        ? s.forgedTotemKeys
+        : [...s.forgedTotemKeys, avatarKey],
+      totems: [...s.totems, totem],
+      // A Totem you just paid for is the one you want to be playing.
+      activeTotemId: totem.id,
+    }))
+    return totem
+  },
   spendMoney(amount) {
     const want = Math.max(0, Math.round(amount))
     const spent = Math.min(want, get().money)
@@ -328,8 +420,19 @@ export function autosaveTime(): Date | null {
 
 // Persist on every change. Simple + adequate for prototype scale.
 usePersistentStore.subscribe((state) => {
-  const { spells, spellSets, totems, activeTotemId, money, settings, lastDungeonSelection, inventory, seenContent } =
-    state
+  const {
+    spells,
+    spellSets,
+    totems,
+    activeTotemId,
+    money,
+    settings,
+    lastDungeonSelection,
+    inventory,
+    materials,
+    forgedTotemKeys,
+    seenContent,
+  } = state
   persistence.save({
     spells,
     spellSets,
@@ -339,6 +442,8 @@ usePersistentStore.subscribe((state) => {
     settings,
     lastDungeonSelection,
     inventory,
+    materials,
+    forgedTotemKeys,
     seenContent,
   })
 })

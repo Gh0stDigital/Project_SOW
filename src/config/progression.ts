@@ -32,7 +32,7 @@ import { hasAsset, resolvedKey } from './assets'
  */
 export const STARTING_TOTEM_KEY = 'Dolbae'
 
-/** The portraits a save may actually raise or wear. */
+/** The portraits a save starts with, before the blacksmith has made any. */
 export const unlockedTotemKeys: readonly string[] = [STARTING_TOTEM_KEY]
 
 /**
@@ -44,11 +44,17 @@ export const unlockedTotemKeys: readonly string[] = [STARTING_TOTEM_KEY]
  * resolvedKey() answers such a key with the category's fallback — which for
  * the totems folder is simply whichever file comes first, and would read as
  * unlocked for any junk string handed in.
+ *
+ * `forged` is the save's own list — the portraits the blacksmith has struck
+ * for this player. It is a parameter rather than a store read because this
+ * file is configuration: what ships open is a build-time fact, what has
+ * been earned is a save-time one, and the caller is the only one holding
+ * both. It defaults to empty, which is what a fresh save has.
  */
-export function isTotemUnlocked(avatarKey: string): boolean {
+export function isTotemUnlocked(avatarKey: string, forged: readonly string[] = []): boolean {
   if (!hasAsset('totems', avatarKey)) return false
   const asked = resolvedKey('totems', avatarKey)
-  return unlockedTotemKeys.some((key) => resolvedKey('totems', key) === asked)
+  return [...unlockedTotemKeys, ...forged].some((key) => resolvedKey('totems', key) === asked)
 }
 
 // ---------------------------------------------------------------------------

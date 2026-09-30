@@ -34,6 +34,7 @@ export interface RunReport {
   moneyEarned: number
   totemXpEarned: number
   itemsCollected: string[]
+  materialsCollected: string[]
   enemiesDefeated: number
   mimicsDefeated: number
   treasureCollected: number
@@ -128,6 +129,7 @@ export function buildRunReport({
     moneyEarned: run.stats.moneyEarned,
     totemXpEarned: run.stats.totemXpEarned,
     itemsCollected: run.stats.itemsCollected,
+    materialsCollected: run.stats.materialsCollected,
     enemiesDefeated: run.stats.enemiesDefeated,
     mimicsDefeated: run.stats.mimicsDefeated,
     treasureCollected: run.stats.treasureCollected,

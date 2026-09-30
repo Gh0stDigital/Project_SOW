@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Screen = 'menu' | 'compendium' | 'totem' | 'dungeon' | 'records'
+export type Screen = 'menu' | 'compendium' | 'totem' | 'workshop' | 'dungeon' | 'records'
 
 interface UiStore {
   screen: Screen

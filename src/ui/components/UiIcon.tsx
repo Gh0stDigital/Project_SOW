@@ -9,6 +9,7 @@ import { getAsset, hasAsset } from '@/config/assets'
  * icons, so an icon can be added or removed without touching a screen.
  */
 const icons = {
+  anvil: { key: 'anvilIcon', emoji: '🔨', label: '대장간' },
   book: { key: 'BookIcon', emoji: '📖', label: '도감' },
   chart: { key: 'chartIcon', emoji: '📊', label: '기록' },
   deck: { key: 'deckIcon', emoji: '⚔️', label: '전투 덱' },

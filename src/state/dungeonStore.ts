@@ -4,12 +4,22 @@ import type { DirectionChoice, DungeonConfig, DungeonRunState, RewardBundle } fr
 import { emptyRewardBundle, introducedCount } from '@/domain/dungeon'
 import type { BattleState } from '@/domain/battle'
 import type { ItemId } from '@/domain/item'
-import { battleBalance, dungeonTiers, enemyLevelRange, recommendedLevel, rewardBalance, totemBalance } from '@/config/balance'
+import {
+  battleBalance,
+  dungeonTiers,
+  enemyLevelRange,
+  recommendedLevel,
+  rewardBalance,
+  totemBalance,
+  type DungeonTierId,
+} from '@/config/balance'
 import { attackPower, rollEnemyLevel } from '@/systems/enemyLevel'
 import { powerBalance } from '@/config/balance'
 import { activeLevelBias } from '@/systems/directionModifiers'
 import { mimicBalance, treasureBalance, trapBalance } from '@/config/dungeonEvents'
 import { getItemDef, itemBalance } from '@/config/items'
+import { getMaterialDef, materialBalance } from '@/config/materials'
+import { rollMaterialChance, rollMaterialDrops } from '@/systems/materials'
 import { mimicRevealText } from '@/systems/eventContent'
 import {
   startDungeon,
@@ -244,6 +254,7 @@ function creditReward(totemId: string, reward: RewardBundle) {
     store.replaceTotem(totemId, (t) => addTotemExperience(t, reward.totemXp).totem)
   }
   for (const itemId of reward.itemIds) store.grantItem(itemId as ItemId)
+  for (const materialId of reward.materialIds) store.grantMaterial(materialId)
 }
 
 /**
@@ -259,6 +270,38 @@ function withRestNpcs(run: DungeonRunState): DungeonRunState {
   const spells = usePersistentStore.getState().spells
   const world = resolveWorld(run.config.worldId)
   return { ...run, restNpcs: buildRestNpcs(spells, world?.npcs ?? [], Math.random) }
+}
+
+/**
+ * Rolls a material drop for the tier being played and folds it in.
+ *
+ * Tier rather than world, because the tier is what the drop tables are cut
+ * by: a shallow run pays in river stones wherever it is walked, and the
+ * deep runs are where the things recipes ask for live.
+ */
+function addMaterialDrop(reward: RewardBundle, tierId: DungeonTierId, chance: number): RewardBundle {
+  const dropped = rollMaterialChance(tierId, chance)
+  if (!dropped) return reward
+  const def = getMaterialDef(dropped)
+  return {
+    ...reward,
+    materialIds: [...reward.materialIds, dropped],
+    lines: [...reward.lines, `${def.icon} ${def.name}`],
+  }
+}
+
+/** Several independent material rolls — what a boss leaves behind. */
+function addMaterialDrops(reward: RewardBundle, tierId: DungeonTierId, count: number): RewardBundle {
+  let next = reward
+  for (const id of rollMaterialDrops(tierId, count)) {
+    const def = getMaterialDef(id)
+    next = {
+      ...next,
+      materialIds: [...next.materialIds, id],
+      lines: [...next.lines, `${def.icon} ${def.name}`],
+    }
+  }
+  return next
 }
 
 /** Rolls an item drop and folds it into a bundle, with its display line. */
@@ -560,9 +603,11 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       // worth what its surroundings are worth.
       totemXp: Math.round(treasureBalance.magicRoomTotemXp * powerBalance.scale(depthLevel(run))),
       itemIds: [],
+      materialIds: [],
       lines: [`💰 ${treasureBalance.magicRoomMoney}`, `✨ 토템 경험치 ${treasureBalance.magicRoomTotemXp}`],
     }
     reward = addItemDrop(reward, treasureBalance.magicRoomItemChance)
+    reward = addMaterialDrop(reward, run.config.tierId, materialBalance.magicRoomDropChance)
     creditReward(run.config.totemId, reward)
 
     set({
@@ -767,9 +812,11 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
         money: rewardBalance.bossMoneyReward,
         totemXp: bossXp,
         itemIds: [],
+        materialIds: [],
         lines: [`💰 ${rewardBalance.bossMoneyReward}`, `✨ 토템 경험치 ${bossXp}`],
       }
       for (let i = 0; i < itemBalance.bossDropCount; i++) reward = addItemDrop(reward, 1)
+      reward = addMaterialDrops(reward, run.config.tierId, materialBalance.bossDropCount)
       creditReward(totemId, reward)
       // Beating the boss is what opens the next tier, and this is the one
       // place a boss is recorded as beaten, so it is the one place the clear
@@ -804,9 +851,15 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       money,
       totemXp: xp,
       itemIds: [],
+      materialIds: [],
       lines: [`💰 ${money}`, `✨ 토템 경험치 ${xp}`],
     }
     reward = addItemDrop(reward, battleBalance.enemyItemDropChance)
+    reward = addMaterialDrop(
+      reward,
+      run.config.tierId,
+      wasMimic ? materialBalance.mimicDropChance : materialBalance.enemyDropChance,
+    )
     if (wasMimic && Math.random() < mimicBalance.exclusiveDropChance) {
       reward = {
         ...reward,
@@ -1013,6 +1066,7 @@ function resolveTreasure(set: SetFn, run: DungeonRunState, correct: boolean) {
     lines: [`💰 ${treasureBalance.baseMoney}`],
   }
   reward = addItemDrop(reward, treasureBalance.itemDropChance)
+  reward = addMaterialDrop(reward, run.config.tierId, materialBalance.treasureDropChance)
   creditReward(run.config.totemId, reward)
 
   set({

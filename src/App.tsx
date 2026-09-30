@@ -7,6 +7,7 @@ import { TransitionCurtain } from '@/ui/components/TransitionCurtain'
 import { MainMenuScreen } from '@/ui/screens/MainMenu/MainMenuScreen'
 import { CompendiumScreen } from '@/ui/screens/Compendium/CompendiumScreen'
 import { TotemScreen } from '@/ui/screens/Totem/TotemScreen'
+import { WorkshopScreen } from '@/ui/screens/Workshop/WorkshopScreen'
 import { DungeonScreen } from '@/ui/screens/Dungeon/DungeonScreen'
 import { RecordsScreen } from '@/ui/screens/Records/RecordsScreen'
 import { TitleSequence } from '@/ui/screens/Title/TitleSequence'
@@ -33,6 +34,7 @@ export default function App() {
       {screen === 'menu' && <MainMenuScreen />}
       {screen === 'compendium' && <CompendiumScreen />}
       {screen === 'totem' && <TotemScreen />}
+      {screen === 'workshop' && <WorkshopScreen />}
       {screen === 'dungeon' && <DungeonScreen />}
       {screen === 'records' && <RecordsScreen />}
       <TransitionCurtain />
