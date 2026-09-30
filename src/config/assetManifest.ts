@@ -26,7 +26,7 @@ export const assetFiles: Readonly<Record<string, string>> = {
   "icons/moneyIcon": "moneyIcon.webp",
   "icons/totemIcon": "totemIcon.webp",
   "icons/trashcanIcon": "trashcanIcon.webp",
-  "shop/keeper": "keeper.png",
+  "shop/keeper": "keeper.webp",
   "spells/dark": "dark.webp",
   "spells/earth": "earth.webp",
   "spells/fire": "fire.webp",
@@ -38,7 +38,7 @@ export const assetFiles: Readonly<Record<string, string>> = {
   "totems/parasite_hunter_Yaharl": "parasite_hunter_Yaharl.webp",
   "totems/Silver Knight": "Silver Knight.webp",
   "totems/TheExplorer": "TheExplorer.webp",
-  "totems/Thirthteeth_Knight": "Thirthteeth_Knight.png",
+  "totems/Thirthteeth_Knight": "Thirthteeth_Knight.webp",
   "ui/awaken": "awaken.webp",
   "ui/cover": "cover.webp",
   "ui/title": "title.webp"

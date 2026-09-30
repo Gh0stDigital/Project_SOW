@@ -3509,42 +3509,44 @@ button.totem-hero-frame {
 
 .shop-keeper {
   display: flex;
+  /* Top-aligned, so the bubble sits at head height with its tail pointing
+     back at her — she is speaking, not standing beside a caption. */
   align-items: flex-start;
-  gap: 10px;
+  gap: 8px;
   margin-top: 4px;
 }
 
 .shop-portrait {
   flex: 0 0 auto;
-  width: 84px;
-  height: 84px;
-  overflow: hidden;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  background: var(--bg-card);
-  box-shadow: var(--frame);
-  transition:
-    border-color 220ms ease,
-    box-shadow 220ms ease;
+  width: 124px;
+  /* No box. The art is cut out on transparency, so she stands on the
+     counter's own wood rather than inside a bordered square — a frame round
+     a cut-out figure reads as an avatar chip, which is the thing this screen
+     stopped being. */
+  line-height: 0;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
+  transition: filter 220ms ease;
 }
 
 .shop-portrait-img {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  /* Contained, never cropped: the book and the brush are most of what says
+     what she does here. */
+  object-fit: contain;
   display: block;
+  image-rendering: pixelated;
 }
 
-/* Framed by mood rather than swapped for different art, so one drawing
-   carries every state the counter can be in. */
+/* Lit rather than framed, so one drawing carries every state. The bubble
+   beside her carries the rest of the signal. */
 .shop-portrait.mood-pleased,
 .shop-portrait.mood-done {
-  border-color: var(--accent-gold);
-  box-shadow: 0 0 18px -6px var(--glow-gold), var(--frame);
+  filter: drop-shadow(0 0 10px var(--glow-gold)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
 }
 
 .shop-portrait.mood-concerned {
-  border-color: var(--accent-red);
+  filter: drop-shadow(0 0 9px rgba(224, 101, 79, 0.55)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.55));
 }
 
 /* A speech bubble, with its tail pointing back at whoever is talking. */
@@ -3637,8 +3639,7 @@ button.totem-hero-frame {
 
 @media (max-width: 380px) {
   .shop-portrait {
-    width: 64px;
-    height: 64px;
+    width: 100px;
   }
 
   .shop-line {
