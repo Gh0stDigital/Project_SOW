@@ -3484,30 +3484,28 @@ button.totem-hero-frame {
      `.screen-scroll` is the scrolling ancestor and nothing between here and
      it clips, so this sticks to the top of the scrolling area. */
   position: sticky;
-  top: 0;
+  /* Pinned a little ABOVE the scrollport's top edge rather than at it.
+     The scroll container carries its own top padding, and a child pinned at
+     top:0 lands below that padding — leaving a band where the list scrolls
+     past in full view. Sticking by exactly that padding puts her own
+     background over the band instead.
+     The first attempt covered it with a pseudo-element above her, which was
+     wrong in a way that only showed when nothing was scrolled: it painted
+     over whatever sat above her at all times, clipping the tab row here and
+     the screen title in the shop. */
+  top: calc(-1 * max(14px, env(safe-area-inset-top)));
   z-index: 3;
-  margin-top: 4px;
   /* Opaque, because sticky over a transparent background would let the list
      slide through her. This is the page's own colour rather than a panel —
      no border, no bevel, no radius — so it reads as the screen and not as
      the window that used to be behind her. The bleed either side covers the
      screen's own 16px padding, so nothing shows up the margins. */
   margin-inline: -16px;
-  padding: 4px 16px 0;
-  background: var(--bg-deep);
-}
-
-/* The scroll container has its own top padding, and a sticky child pins
-   just below it — which leaves a band above her where the list scrolls
-   through in full view. This covers that band: it is part of the sticky box,
-   so it travels with her and is only over the padding once she is pinned. */
-.shop-counter::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: max(20px, env(safe-area-inset-top));
+  /* Top padding matches how far above the scrollport she pins, so her
+     content sits in the same place it would have without any of this and
+     never ends up flush against the screen edge. */
+  padding: max(14px, env(safe-area-inset-top)) 16px 0;
+  margin-top: calc(-1 * max(14px, env(safe-area-inset-top)));
   background: var(--bg-deep);
 }
 
