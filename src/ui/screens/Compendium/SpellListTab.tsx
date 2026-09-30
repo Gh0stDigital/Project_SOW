@@ -12,24 +12,37 @@ import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
 import { UiIcon } from '@/ui/components/UiIcon'
 
-export function SpellListTab() {
+interface SpellListTabProps {
+  /**
+   * Called when a full-screen sub-panel opens or closes, so the Compendium
+   * can get its tab row out of the way. The word shop is meant to read as a
+   * place you have walked into; a row of tabs sitting over the counter says
+   * you are still filing paperwork.
+   */
+  onSubScreen?: (screen: null | 'shop' | 'editor') => void
+}
+
+export function SpellListTab({ onSubScreen }: SpellListTabProps = {}) {
   const spells = usePersistentStore((s) => s.spells)
   const deleteSpell = usePersistentStore((s) => s.deleteSpell)
   const [editing, setEditing] = useState<'new' | 'import' | Spell | null>(null)
   const [query, setQuery] = useState('')
 
+  const leave = () => {
+    setEditing(null)
+    onSubScreen?.(null)
+  }
+  const enter = (next: 'new' | 'import' | Spell) => {
+    setEditing(next)
+    onSubScreen?.(next === 'import' ? 'shop' : 'editor')
+  }
+
   if (editing === 'import') {
-    return <SpellImportPanel onDone={() => setEditing(null)} onCancel={() => setEditing(null)} />
+    return <SpellImportPanel onDone={leave} onCancel={leave} />
   }
 
   if (editing) {
-    return (
-      <SpellEditorForm
-        existing={editing === 'new' ? undefined : editing}
-        onDone={() => setEditing(null)}
-        onCancel={() => setEditing(null)}
-      />
-    )
+    return <SpellEditorForm existing={editing === 'new' ? undefined : editing} onDone={leave} onCancel={leave} />
   }
 
   // Search covers every populated definition, not just the first.
@@ -41,11 +54,11 @@ export function SpellListTab() {
   return (
     <div className="list">
       <div className="btn-row">
-        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setEditing('new')}>
+        <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => enter('new')}>
           + 새 주문 단어
         </button>
-        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setEditing('import')}>
-          📥 일괄 가져오기
+        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={() => enter('import')}>
+          🛒 낱말 상점
         </button>
       </div>
 

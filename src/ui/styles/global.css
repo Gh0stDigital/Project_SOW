@@ -3463,6 +3463,182 @@ button.totem-hero-frame {
   color: var(--accent-gold);
 }
 
+/* ===========================================================================
+   The word shop
+   ===========================================================================
+
+   Bringing vocabulary in used to be a form with a paragraph of instructions
+   over it. It is a place now: a sign, somebody behind the counter, and what
+   they say about whatever is currently on it. The layout carries the whole
+   of that — there is no second set of instructions anywhere on the screen,
+   because the keeper is the instructions. */
+
+.word-shop {
+  gap: 12px;
+}
+
+.shop-counter {
+  position: relative;
+  margin-top: 8px;
+  padding: 16px 12px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: var(--bevel), var(--frame);
+}
+
+/* The shop's name, hung over the counter rather than set as a page title —
+   a heading would read as one more section of the Compendium, which is the
+   thing this screen is trying to stop feeling like. */
+.shop-sign {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  color: var(--accent-gold);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-card);
+  box-shadow: var(--frame);
+}
+
+.shop-keeper {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.shop-portrait {
+  flex: 0 0 auto;
+  width: 84px;
+  height: 84px;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  box-shadow: var(--frame);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.shop-portrait-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Framed by mood rather than swapped for different art, so one drawing
+   carries every state the counter can be in. */
+.shop-portrait.mood-pleased,
+.shop-portrait.mood-done {
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 18px -6px var(--glow-gold), var(--frame);
+}
+
+.shop-portrait.mood-concerned {
+  border-color: var(--accent-red);
+}
+
+/* A speech bubble, with its tail pointing back at whoever is talking. */
+.shop-speech {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  box-shadow: var(--frame);
+}
+
+.shop-speech::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: -6px;
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  border-left: 1px solid var(--border-soft);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-card);
+}
+
+.shop-speech.mood-pleased,
+.shop-speech.mood-done {
+  border-color: var(--accent-gold);
+}
+
+.shop-speech.mood-pleased::before,
+.shop-speech.mood-done::before {
+  border-left-color: var(--accent-gold);
+  border-bottom-color: var(--accent-gold);
+}
+
+.shop-speech.mood-concerned {
+  border-color: var(--accent-red);
+}
+
+.shop-speech.mood-concerned::before {
+  border-left-color: var(--accent-red);
+  border-bottom-color: var(--accent-red);
+}
+
+.shop-speech-name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent-gold);
+  margin-bottom: 3px;
+}
+
+.shop-line {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text-primary);
+}
+
+.shop-hint {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+/* The tools behind the counter: a wrapping shelf rather than three fixed
+   rows of paired buttons, so adding one does not push the counter itself
+   off a short screen. */
+.shop-shelf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.shop-shelf .btn {
+  flex: 1 1 auto;
+  min-width: 92px;
+}
+
+@media (max-width: 380px) {
+  .shop-portrait {
+    width: 64px;
+    height: 64px;
+  }
+
+  .shop-line {
+    font-size: 12px;
+  }
+}
+
 /* The counter window, drawn on the answer clock.
    Answer a defence while the bar is still past this mark and the blow is
    turned back instead of merely softened — which is worth nothing if the

@@ -202,6 +202,16 @@ const globalManifest = {
     items: { default: 'circle' },
     onlyWhenEmpty: true,
   },
+  // The word shop's keeper. A real slot rather than flavour: the import
+  // screen always shows someone behind the counter, so a stand-in here is
+  // filling a gap rather than taking a turn ahead of real art. Generated
+  // only into an empty folder, so dropping the drawn portrait in over it is
+  // permanent.
+  shop: {
+    palette: { bg: '#2a2218', accent: '#e8c04a' },
+    items: { keeper: 'circle' },
+    onlyWhenEmpty: true,
+  },
   // Spell icons are flavour, not slots: pickFlavorKey() spreads whatever is
   // in the folder across the cards, so a generated stand-in does not fill a
   // gap — it takes a turn in the rotation ahead of real art. Renaming

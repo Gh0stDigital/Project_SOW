@@ -10,6 +10,8 @@ import {
 } from '@/systems/spellImport'
 import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
+import { AssetImage } from '@/ui/components/AssetImage'
+import { emptyCounter, keeperSpeech, SHOP_KEEPER_NAME, SHOP_SIGN } from '@/systems/wordShop'
 
 /** Saves text as a local file via a throwaway object URL — no network involved. */
 function downloadTextFile(filename: string, content: string, mime: string) {
@@ -35,9 +37,15 @@ interface SpellImportPanelProps {
 }
 
 /**
- * Batch Spell Word import. Paste text or load a .txt/.csv file, preview
- * what will happen line-by-line, then commit. Entirely local — the file
- * is read in-browser via FileReader and never leaves the device.
+ * The word shop: where vocabulary is brought in.
+ *
+ * Mechanically the same batch import it always was — paste text or open a
+ * .txt/.csv, see line by line what will happen, then commit, all in-browser
+ * with nothing leaving the device. What changed is that it is a place with
+ * somebody in it rather than a form with a paragraph of instructions above
+ * it. The keeper reads the counter as the player fills it and says the one
+ * thing that is true right now; see systems/wordShop.ts, which decides what
+ * that is.
  */
 export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
   const spells = usePersistentStore((s) => s.spells)
@@ -109,17 +117,41 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
     setImported(created.length)
   }
 
+  // Everything the keeper looks at. Derived rather than stored, so what
+  // they say follows the counter as it is typed into.
+  const speech = keeperSpeech({
+    ...emptyCounter(),
+    hasText: hasContent,
+    ready: result.ok.length,
+    fills: result.fills.length,
+    duplicates: Math.max(0, result.duplicates.length - result.fills.length),
+    errors: result.errors.length,
+    hasHeader: (result.headerColumns?.length ?? 0) > 0,
+    withExamples: result.ok.filter((r) => r.input.sampleSentence?.trim()).length,
+    imported,
+    filled,
+  })
+
+  const counter = (
+    <div className="shop-counter">
+      <div className="shop-sign">{SHOP_SIGN}</div>
+      <div className="shop-keeper">
+        <div className={`shop-portrait mood-${speech.mood}`}>
+          <AssetImage category="shop" assetKey="keeper" alt={SHOP_KEEPER_NAME} className="shop-portrait-img" />
+        </div>
+        <div className={`shop-speech mood-${speech.mood}`}>
+          <div className="shop-speech-name">{SHOP_KEEPER_NAME}</div>
+          <p className="shop-line">{speech.line}</p>
+          {speech.hint && <p className="shop-hint">{speech.hint}</p>}
+        </div>
+      </div>
+    </div>
+  )
+
   if (imported !== null) {
     return (
-      <div className="list">
-        <div className="empty-state">
-          <span className="glyph">✅</span>
-          <p>
-            주문 단어 {imported}개를 가져왔습니다
-            {makeSet && imported > 0 ? '. 이 단어들로 주문 세트도 만들었습니다.' : '.'}
-            {filled > 0 && <> 이미 있던 단어 {filled}개의 빈 칸도 채웠습니다.</>}
-          </p>
-        </div>
+      <div className="list word-shop">
+        {counter}
         <button className="btn btn-primary btn-block" onClick={onDone}>
           완료
         </button>
@@ -128,9 +160,11 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
   }
 
   return (
-    <div className="list">
+    <div className="list word-shop">
+      {counter}
+
       <div className="field">
-        <label htmlFor="import-text">단어 목록을 붙여 넣으세요</label>
+        <label htmlFor="import-text">가져온 낱말</label>
         <textarea
           id="import-text"
           rows={7}
@@ -139,44 +173,37 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
           onChange={(e) => setText(e.target.value)}
           placeholder={PLACEHOLDER}
         />
-        <p className="faint">
-          간단한 형식: 한 줄에 단어 하나, 한국어를 먼저 쓰고 뜻을 씁니다 — 쉼표, 탭, 세로줄로 구분합니다.
-          스프레드시트에서 그대로 붙여 넣어도 됩니다. 머리글 행(단어, 품사, 뜻 1, 뜻 2, 예문, 현재형, 과거형,
-          미래형…)을 넣으면 전체 항목을 채울 수 있고, 열 순서는 상관없습니다. 속성은 품사에서 정해지므로
-          속성 열은 무시됩니다.
-        </p>
       </div>
 
-      <div className="btn-row">
+      {/* The counter's own tools. Opening a file is the common path, so it
+          leads; the rest are shelved behind it rather than stacked in three
+          equal rows of four. */}
+      <button className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()}>
+        📄 파일 열기 (.txt · .csv)
+      </button>
+      <div className="shop-shelf">
+        <button className="btn btn-ghost btn-sm" onClick={() => setText(IMPORT_TEMPLATE_SIMPLE_CSV)}>
+          ✏️ 간단한 예시
+        </button>
+        <button className="btn btn-ghost btn-sm" onClick={() => setText(IMPORT_TEMPLATE_CSV)}>
+          👁️ 전체 예시
+        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => downloadTextFile('thoth-vocab-template.csv', IMPORT_TEMPLATE_CSV, 'text/csv')}
         >
-          ⬇️ 전체 서식
-        </button>
-        <button className="btn btn-ghost btn-sm" onClick={() => setText(IMPORT_TEMPLATE_CSV)}>
-          👁️ 미리 보기
-        </button>
-      </div>
-      <div className="btn-row">
-        <button className="btn btn-ghost btn-sm" onClick={() => setText(IMPORT_TEMPLATE_SIMPLE_CSV)}>
-          ✏️ 간단한 형식
+          ⬇️ 서식 받기
         </button>
         <button
           className="btn btn-ghost btn-sm"
           disabled={spells.length === 0}
           onClick={() => downloadTextFile('thoth-vocab-export.csv', exportSpellsToCsv(spells), 'text/csv')}
         >
-          ⬆️ 내 단어 내보내기
-        </button>
-      </div>
-      <div className="btn-row">
-        <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>
-          📄 .txt / .csv 파일 열기
+          ⬆️ 내보내기
         </button>
         {hasContent && (
           <button className="btn btn-ghost btn-sm" onClick={() => setText('')}>
-            지우기
+            🧹 비우기
           </button>
         )}
       </div>
@@ -273,7 +300,7 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
         </button>
       </div>
       <button className="btn btn-ghost btn-block" onClick={onCancel}>
-        취소
+        나가기
       </button>
     </div>
   )
