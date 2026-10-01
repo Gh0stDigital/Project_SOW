@@ -211,26 +211,25 @@ export interface DungeonTierDef {
   label: string
   /** One-line flavor/difficulty blurb shown in the dungeon info display. */
   description: string
-  /** The most words a run at this tier draws on. A larger set is sampled down. */
-  wordLimit: number
   /**
-   * How many of the run's words must be met before the Key Room can appear.
+   * The size of a run at this tier: the words it draws on, the fewest a set
+   * may bring, and the number it must teach before the Key Room opens — all
+   * the same number.
    *
-   * It used to be all of them, which quietly made the size of your word list
-   * the length of your run: ten words was a short dungeon and fifty was a
-   * long one, for identical rewards. Nobody was being paid for the extra
-   * half hour, so the only sensible play was to bring as few words as
-   * possible — and with no floor at all, a one-word set bought an instant
-   * key, a one-answer barrier and the tier's full rewards.
+   * These were three separate numbers once, and the gap between them was a
+   * problem. The key asked for fewer words than the pool held, so a tier-50
+   * run taught sixteen of its fifty and handed over the key; and a set only
+   * had to clear that lower bar, so bringing as few words as possible was
+   * strictly the best play — run length was your word-list size, for
+   * identical rewards.
    *
-   * A fixed number instead, so bringing more words changes what you meet
-   * rather than how long you are there. A small set drills: the same words
-   * keep coming back, many reps each. A large one reviews: a wide draw at
-   * the same length, which the run's own weighting steers toward whatever
-   * you have not met or keep getting wrong. Neither pays better, so the
-   * choice is about how you want to study.
+   * Collapsing them fixes both ends at once. A set must carry the tier's
+   * full count, so the choice of how little to bring is gone; and the key
+   * waits for every one of those words to have been met at least once, so
+   * the tier's name is the honest length of the run. A 50-word dungeon is a
+   * fifty-word session.
    */
-  wordsToOpenKeyRoom: number
+  wordLimit: number
   /**
    * How many words the boss barrier demands, drawn from the run's pool.
    *
@@ -279,13 +278,16 @@ export function enemyLevelRange(worldId: string, tierId: DungeonTierId): EnemyLe
 }
 
 /**
- * The fewest words a set needs to carry a run at this tier.
+ * The fewest words a set needs to carry a run at this tier — the tier's full
+ * count, nothing less.
  *
- * Exactly the key requirement, because a set smaller than that could never
- * open the Key Room and the run would have nowhere to go.
+ * The pool is mandatory now rather than a ceiling. A smaller set could never
+ * open the Key Room, since the key waits on every word in the pool having
+ * been met; and allowing one would bring back the old incentive to carry the
+ * thinnest set that still qualified.
  */
 export function minimumSetSize(tier: DungeonTierDef): number {
-  return tier.wordsToOpenKeyRoom
+  return tier.wordLimit
 }
 
 /** The middle of a band — what a Totem should be to belong there. */
@@ -316,7 +318,6 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '10단어 던전',
     description: '부담 없는 첫 탐험 — 기초 어휘를 다지기에 좋습니다.',
     wordLimit: 10,
-    wordsToOpenKeyRoom: 8,
     barrierWords: 4,
     minEventsBeforeBossEligible: 6,
     hazardDamageMultiplier: 1,
@@ -327,7 +328,6 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '25단어 던전',
     description: '익숙한 단어와 새 단어가 섞여 압박이 점점 커지는 긴 시험입니다.',
     wordLimit: 25,
-    wordsToOpenKeyRoom: 12,
     barrierWords: 6,
     minEventsBeforeBossEligible: 12,
     hazardDamageMultiplier: 1.6,
@@ -338,7 +338,6 @@ export const dungeonTiers: DungeonTierDef[] = [
     label: '50단어 던전',
     description: '가장 깊은 곳 — 충분히 준비한 사람을 위한 어휘의 시험대입니다.',
     wordLimit: 50,
-    wordsToOpenKeyRoom: 16,
     barrierWords: 8,
     minEventsBeforeBossEligible: 20,
     hazardDamageMultiplier: 2.4,

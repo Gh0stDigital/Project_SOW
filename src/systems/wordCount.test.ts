@@ -8,24 +8,25 @@ import {
   buildDungeonConfig,
   markWordIntroduced,
   pickBarrierWords,
+  recordWordAttempt,
   startDungeon,
   wordsNeededForKey,
 } from './dungeonSession'
 
 /**
- * What the size of your word list decides.
+ * What the size of your word list decides: nothing. The tier decides.
  *
- * It used to decide how long you were there. The Key Room waited on every
- * word in the pool being met and the boss barrier charged one correct answer
- * per word, while nothing paid a penny more for the extra half hour — so ten
- * words was a short run and fifty was the same run stretched. With no floor
- * either, a one-word set bought an instant key, a one-answer barrier and the
- * tier's full rewards, which made the shortest possible run the best-paying
- * one.
+ * Three numbers used to be in play — how many words the run drew on, how
+ * many it had to teach before the key, and how few a set could get away with
+ * bringing — and the gaps between them were the problem. A tier-50 run
+ * taught sixteen of its fifty and handed over the key; a set only had to
+ * clear that lower bar, so the thinnest qualifying set was strictly the best
+ * play, because nothing paid a penny more for a longer run.
  *
- * Both gates are fixed per tier now, so the list decides *variety* instead:
- * a small set drills the same words over and over, a large one sweeps
- * across many, and both runs take about the same time.
+ * They are one number now. A set must carry the tier's full count, and the
+ * key waits until every one of those words has been met at least once. So
+ * the tier's name is the honest length of the run, and the only decision
+ * left is which tier to walk into.
  */
 
 const tierOf = (id: DungeonTierId) => dungeonTiers.find((t) => t.id === id)!
@@ -43,40 +44,45 @@ function introduce(run: DungeonRunState, count: number): DungeonRunState {
   return next
 }
 
-describe('the key waits on a fixed number of words, not on all of them', () => {
-  it('asks the tier\'s number however many words were brought', () => {
+/** Answers one of the run's words, right or wrong, `times` over. */
+function answer(run: DungeonRunState, id: string, correct: boolean, times = 1): DungeonRunState {
+  let next = run
+  for (let i = 0; i < times; i++) next = recordWordAttempt(next, id, 'defense', correct)
+  return next
+}
+
+describe('the key waits on the whole pool', () => {
+  it('asks for every word the run drew', () => {
     for (const tier of dungeonTiers) {
-      const small = runWith(tier.wordsToOpenKeyRoom, tier.id)
-      const large = runWith(tier.wordLimit, tier.id)
-      expect(wordsNeededForKey(small)).toBe(tier.wordsToOpenKeyRoom)
-      expect(wordsNeededForKey(large)).toBe(tier.wordsToOpenKeyRoom)
+      const run = runWith(tier.wordLimit, tier.id)
+      expect(wordsNeededForKey(run)).toBe(tier.wordLimit)
+      expect(wordsNeededForKey(run)).toBe(run.config.dungeonWordIds.length)
     }
   })
 
-  it('opens the Key Room once that many are met, with plenty still unmet', () => {
+  it('stays shut while a single word is still unmet', () => {
     const tier = tierOf('tier50')
     const run = runWith(tier.wordLimit, 'tier50')
-    const justShort = introduce(run, tier.wordsToOpenKeyRoom - 1)
-    expect(justShort.keyRoomUnlocked).toBe(false)
+    const allButOne = introduce(run, tier.wordLimit - 1)
+    expect(allButOne.keyRoomUnlocked).toBe(false)
+    expect(introducedCount(allButOne)).toBe(tier.wordLimit - 1)
 
-    const enough = introduce(run, tier.wordsToOpenKeyRoom)
-    expect(enough.keyRoomUnlocked).toBe(true)
-    // The point of the change: most of the set is still unseen and the run
-    // is free to end anyway.
-    expect(introducedCount(enough)).toBeLessThan(enough.config.dungeonWordIds.length)
+    const complete = introduce(run, tier.wordLimit)
+    expect(complete.keyRoomUnlocked).toBe(true)
+    // The point of the change: nothing in the pool goes untaught.
+    expect(introducedCount(complete)).toBe(complete.config.dungeonWordIds.length)
   })
 
-  it('makes a big list no longer to finish than a small one', () => {
-    const tier = tierOf('tier50')
-    const small = introduce(runWith(tier.wordsToOpenKeyRoom, 'tier50'), tier.wordsToOpenKeyRoom)
-    const large = introduce(runWith(tier.wordLimit, 'tier50'), tier.wordsToOpenKeyRoom)
-    expect(small.keyRoomUnlocked).toBe(true)
-    expect(large.keyRoomUnlocked).toBe(true)
+  it('makes a deeper tier a longer run, which is what its name says', () => {
+    const lengths = dungeonTiers.map((t) => wordsNeededForKey(runWith(t.wordLimit, t.id)))
+    for (let i = 1; i < lengths.length; i++) expect(lengths[i]).toBeGreaterThan(lengths[i - 1])
+    expect(lengths).toEqual(dungeonTiers.map((t) => t.wordLimit))
   })
 
   it('never asks for more words than the run actually holds', () => {
-    // A saved selection, or a set the player emptied after choosing it,
-    // must not leave a run with a key that can never appear.
+    // The dungeon screen refuses an undersized set, so this is a guard for a
+    // saved selection or a set emptied after it was chosen — such a run must
+    // still be finishable rather than hold a key that can never appear.
     const undersized = runWith(3, 'tier50')
     expect(wordsNeededForKey(undersized)).toBe(3)
     expect(introduce(undersized, 3).keyRoomUnlocked).toBe(true)
@@ -87,57 +93,14 @@ describe('the key waits on a fixed number of words, not on all of them', () => {
   })
 })
 
-describe('the boss barrier is a fixed size too', () => {
-  it('asks the tier\'s number rather than one per word in the pool', () => {
+describe('a set must carry the tier', () => {
+  it('asks for the tier\'s full count, not some lower bar', () => {
     for (const tier of dungeonTiers) {
-      const run = runWith(tier.wordLimit, tier.id)
-      expect(barrierWordCount(run)).toBe(tier.barrierWords)
-      expect(barrierWordCount(run)).toBeLessThan(run.config.dungeonWordIds.length)
+      expect(minimumSetSize(tier)).toBe(tier.wordLimit)
     }
   })
 
-  it('stops the deepest dungeon demanding fifty right answers before the boss', () => {
-    const run = runWith(50, 'tier50')
-    expect(pickBarrierWords(run)).toHaveLength(tierOf('tier50').barrierWords)
-  })
-
-  it('draws only words the run has actually taught', () => {
-    const tier = tierOf('tier50')
-    const run = introduce(runWith(tier.wordLimit, 'tier50'), tier.wordsToOpenKeyRoom)
-    const met = new Set(run.config.dungeonWordIds.filter((id) => run.wordStats[id]?.introduced))
-    // With a big set and a fixed barrier, a blind draw would demand words
-    // the dungeon never showed — which is a question about vocabulary the
-    // run never offered to teach.
-    for (const id of pickBarrierWords(run)) expect(met.has(id)).toBe(true)
-  })
-
-  it('falls back to unmet words rather than returning a short barrier', () => {
-    const run = introduce(runWith(10, 'tier10'), 1)
-    expect(pickBarrierWords(run)).toHaveLength(tierOf('tier10').barrierWords)
-  })
-
-  it('picks distinct words', () => {
-    const run = introduce(runWith(25, 'tier25'), 12)
-    const picked = pickBarrierWords(run)
-    expect(new Set(picked).size).toBe(picked.length)
-  })
-
-  it('never asks for more than the pool holds', () => {
-    const run = introduce(runWith(2, 'tier50'), 2)
-    expect(pickBarrierWords(run)).toHaveLength(2)
-  })
-})
-
-describe('a set has to be big enough to carry a run', () => {
-  it('asks for exactly what the key needs', () => {
-    for (const tier of dungeonTiers) {
-      expect(minimumSetSize(tier)).toBe(tier.wordsToOpenKeyRoom)
-    }
-  })
-
-  it('leaves no tier where the minimum cannot open its own key', () => {
-    // The floor has to be at least the key requirement, or a set that
-    // passes the check still strands the run.
+  it('leaves no tier whose own minimum cannot open its key', () => {
     for (const tier of dungeonTiers) {
       const run = runWith(minimumSetSize(tier), tier.id)
       expect(introduce(run, minimumSetSize(tier)).keyRoomUnlocked).toBe(true)
@@ -150,34 +113,118 @@ describe('a set has to be big enough to carry a run', () => {
     }
   })
 
-  it('keeps a deeper tier asking for more words than a shallower one', () => {
+  it('keeps a deeper tier asking for more words and a bigger barrier', () => {
     for (let i = 1; i < dungeonTiers.length; i++) {
-      expect(dungeonTiers[i].wordsToOpenKeyRoom).toBeGreaterThan(dungeonTiers[i - 1].wordsToOpenKeyRoom)
+      expect(dungeonTiers[i].wordLimit).toBeGreaterThan(dungeonTiers[i - 1].wordLimit)
       expect(dungeonTiers[i].barrierWords).toBeGreaterThan(dungeonTiers[i - 1].barrierWords)
-    }
-  })
-
-  it('never asks for more words than the tier will even draw on', () => {
-    for (const tier of dungeonTiers) {
-      expect(tier.wordsToOpenKeyRoom).toBeLessThanOrEqual(tier.wordLimit)
     }
   })
 })
 
-describe('bringing more words changes the mix, not the length', () => {
-  it('draws on more of a larger set while asking the same of the run', () => {
-    const tier = tierOf('tier25')
-    const drill = runWith(tier.wordsToOpenKeyRoom, 'tier25')
-    const review = runWith(tier.wordLimit, 'tier25')
-    // The wide set genuinely puts more words in play...
-    expect(review.config.dungeonWordIds.length).toBeGreaterThan(drill.config.dungeonWordIds.length)
-    // ...without asking for more before the run can end.
-    expect(wordsNeededForKey(review)).toBe(wordsNeededForKey(drill))
-    expect(barrierWordCount(review)).toBe(barrierWordCount(drill))
+describe('the boss barrier is a fixed size', () => {
+  it('asks the tier\'s number rather than one per word in the pool', () => {
+    for (const tier of dungeonTiers) {
+      const run = runWith(tier.wordLimit, tier.id)
+      expect(barrierWordCount(run)).toBe(tier.barrierWords)
+      expect(barrierWordCount(run)).toBeLessThan(run.config.dungeonWordIds.length)
+    }
   })
 
-  it('still caps what a single run will draw on', () => {
-    const run = runWith(500, 'tier10')
-    expect(run.config.dungeonWordIds).toHaveLength(tierOf('tier10').wordLimit)
+  it('stops the deepest dungeon demanding fifty right answers before the boss', () => {
+    expect(pickBarrierWords(runWith(50, 'tier50'))).toHaveLength(tierOf('tier50').barrierWords)
+  })
+
+  it('picks distinct words', () => {
+    const run = introduce(runWith(25, 'tier25'), 25)
+    const picked = pickBarrierWords(run)
+    expect(new Set(picked).size).toBe(picked.length)
+  })
+
+  it('never asks for more than the pool holds', () => {
+    expect(pickBarrierWords(introduce(runWith(2, 'tier50'), 2))).toHaveLength(2)
+  })
+})
+
+describe('the barrier is made of what the run went worst', () => {
+  /** A tier-10 run with every word met, so only performance separates them. */
+  function taught(): DungeonRunState {
+    return introduce(runWith(10, 'tier10'), 10)
+  }
+
+  it('leads with the word missed most often', () => {
+    let run = taught()
+    run = answer(run, 'spell_7', false, 4)
+    run = answer(run, 'spell_3', false, 2)
+    run = answer(run, 'spell_1', false, 1)
+    for (const id of ['spell_0', 'spell_2', 'spell_4', 'spell_5']) run = answer(run, id, true, 3)
+
+    expect(pickBarrierWords(run).slice(0, 3)).toEqual(['spell_7', 'spell_3', 'spell_1'])
+  })
+
+  it('counts a word missed as often as answered as struggled with', () => {
+    let run = taught()
+    run = answer(run, 'spell_2', true, 2)
+    run = answer(run, 'spell_2', false, 2) // even — still a word you do not have
+    run = answer(run, 'spell_8', true, 5)
+    const picked = pickBarrierWords(run)
+    expect(picked[0]).toBe('spell_2')
+    // The barrier is four words and ranks the untested ones above a word
+    // answered right five times, so the known one does not make it at all.
+    expect(picked).not.toContain('spell_8')
+  })
+
+  it('puts a word only ever seen above one answered right repeatedly', () => {
+    // Seen in a Magic Room and never produced is a weaker claim to knowing
+    // it than three right answers, so the barrier wants it first.
+    let run = runWith(10, 'tier10')
+    run = markWordIntroduced(run, 'spell_4')
+    for (const id of ['spell_0', 'spell_1', 'spell_2']) run = answer(run, id, true, 3)
+    const picked = pickBarrierWords(run)
+    expect(picked.indexOf('spell_4')).toBeLessThan(picked.indexOf('spell_0'))
+  })
+
+  it('ranks a clean run by accuracy, then by how little it was practised', () => {
+    // Every word answered and every one mostly right, so nothing is
+    // struggled with and nothing is merely seen — only this tier is in play.
+    let run = taught()
+    for (const id of run.config.dungeonWordIds) run = answer(run, id, true, 4)
+    run = answer(run, 'spell_0', false, 1) // 4/5 — the lowest accuracy
+    run = answer(run, 'spell_2', true, 2) // 6/4... still 100%, but most practised
+
+    const picked = pickBarrierWords(run)
+    // Lowest accuracy leads; among the rest, the least practised comes first
+    // and the most practised is the last word the barrier would ever want.
+    expect(picked[0]).toBe('spell_0')
+    expect(picked).not.toContain('spell_2')
+  })
+
+  it('still fills a barrier for a run that got everything right', () => {
+    let run = taught()
+    for (const id of run.config.dungeonWordIds) run = answer(run, id, true, 2)
+    const picked = pickBarrierWords(run)
+    expect(picked).toHaveLength(tierOf('tier10').barrierWords)
+    expect(new Set(picked).size).toBe(picked.length)
+  })
+
+  it('backs onto words the run never met rather than returning a short barrier', () => {
+    const run = introduce(runWith(10, 'tier10'), 1)
+    expect(pickBarrierWords(run)).toHaveLength(tierOf('tier10').barrierWords)
+  })
+
+  it('prefers any word the run touched over one it never met', () => {
+    let run = runWith(10, 'tier10')
+    run = answer(run, 'spell_9', true, 9)
+    // spell_9 went perfectly, but it is the only word with any record at
+    // all — a barrier would rather ask it than a word never shown.
+    expect(pickBarrierWords(run)[0]).toBe('spell_9')
+  })
+
+  it('reads the run rather than the tier: same dungeon, different barriers', () => {
+    let a = taught()
+    let b = taught()
+    a = answer(a, 'spell_1', false, 3)
+    b = answer(b, 'spell_6', false, 3)
+    expect(pickBarrierWords(a)[0]).toBe('spell_1')
+    expect(pickBarrierWords(b)[0]).toBe('spell_6')
   })
 })

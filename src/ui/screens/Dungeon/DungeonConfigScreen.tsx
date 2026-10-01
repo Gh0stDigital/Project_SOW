@@ -234,9 +234,14 @@ export function DungeonConfigScreen() {
           </div>
 
           {dungeonSet && (
-            <p className="faint setup-summary">
-              단어 {dungeonSet.spellIds.length}개 중 {Math.min(dungeonSet.spellIds.length, tier.wordLimit)}개를 사용합니다 ·
-              열쇠까지 {tier.wordsToOpenKeyRoom}개 · 보스 결계 {tier.barrierWords}개
+            // A set that cannot carry the tier is told what it is short of
+            // rather than what the run would be like — the old line read
+            // "9 of 9 words will be used", which describes a run this tier
+            // will not start.
+            <p className={`setup-summary${chosenSetTooSmall ? ' warn' : ' faint'}`}>
+              {chosenSetTooSmall
+                ? `이 등급은 단어 ${tier.wordLimit}개가 필요합니다 — ${tier.wordLimit - dungeonSet.spellIds.length}개 모자랍니다`
+                : `단어 ${dungeonSet.spellIds.length}개 중 ${tier.wordLimit}개를 사용합니다 · 전부 익혀야 열쇠 · 보스 결계 ${tier.barrierWords}개`}
             </p>
           )}
           {dungeonRandom && randomPool.length > 0 && (

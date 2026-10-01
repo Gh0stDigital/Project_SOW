@@ -22,7 +22,14 @@ import { rollEvent } from './eventGenerator'
 import { eventDefinitions } from './eventContent'
 import { generateChallenge } from './challengeEngine'
 import { tickModifiers, addModifier as addModifierTo } from './directionModifiers'
-import { initWordStats, markIntroduced, pickRunWord, recordAttempt, type AttemptKind } from './wordStats'
+import {
+  accuracyOf,
+  initWordStats,
+  markIntroduced,
+  pickRunWord,
+  recordAttempt,
+  type AttemptKind,
+} from './wordStats'
 import { transition } from './dungeonState'
 import { makeId } from './idGen'
 import { resolveWorld, pickSlot } from './worldRegistry'
@@ -293,16 +300,14 @@ export function markWordIntroduced(run: DungeonRunState, spellId: string): Dunge
  * How many of this run's words have to be met before the Key Room can turn
  * up.
  *
- * The tier's own number, except when the player brought fewer words than
- * that — then it is however many they brought, because a requirement the
- * pool cannot satisfy is a run with no way out. The dungeon screen refuses
- * an undersized set, so this is a guard against a saved selection or a set
- * that shrank after the fact rather than an ordinary case.
+ * Every word the run drew. The pool is the tier's full count and a set may
+ * not bring less, so this is the tier's number — read off the run rather
+ * than off the tier so a pool that came out short for any reason (a saved
+ * selection, a set edited mid-session) still names a requirement it can
+ * actually meet.
  */
 export function wordsNeededForKey(run: DungeonRunState): number {
-  const tier = dungeonTiers.find((t) => t.id === run.config.tierId)
-  const asked = tier?.wordsToOpenKeyRoom ?? run.config.dungeonWordIds.length
-  return Math.max(1, Math.min(asked, run.config.dungeonWordIds.length))
+  return Math.max(1, run.config.dungeonWordIds.length)
 }
 
 /** How many words the boss barrier demands, never more than the pool holds. */
@@ -313,18 +318,38 @@ export function barrierWordCount(run: DungeonRunState): number {
 }
 
 /**
- * The words the boss barrier will demand.
+ * The words the boss barrier will demand: the ones this run went worst.
  *
- * Drawn from the ones this run has actually met, so the barrier never asks
- * for a word the dungeon never taught — with a big set and a fixed barrier
- * size that would otherwise happen most runs. It falls back to the rest of
- * the pool only if too few have been introduced, which the Key Room gate
- * makes unlikely but not impossible.
+ * The barrier used to be a shuffle of whatever had been met, which made the
+ * boss a random sample of the dungeon. It is the run's exam now — the words
+ * you kept getting wrong are the ones standing between you and the fight,
+ * which is the whole reason to have a barrier at all rather than a longer
+ * health bar.
+ *
+ * It is only worth doing because the key now waits on the whole pool: with
+ * every word met before the boss can spawn, "your worst eight" is drawn
+ * from all fifty rather than from the sixteen the run happened to reach.
+ *
+ * Ordered worst-first, in four tiers, so a run with nothing to punish still
+ * gets a barrier of its weakest words rather than a random one:
+ *
+ *   1. answered, and missed at least as often as not — most misses first
+ *   2. met but never actually answered (the Magic Room introduces words this
+ *      way), which is the next-weakest claim to knowing one
+ *   3. answered and mostly right — lowest accuracy first, and between equals
+ *      the one practised least
+ *   4. never met at all, shuffled
+ *
+ * Tier 2 sits above tier 3 deliberately: a word you have seen once and never
+ * had to produce is less proven than one you answered right three times, and
+ * the barrier is for the ones you are least sure of.
+ *
+ * `rng` only shuffles the bottom tier. The order itself is the run's own
+ * record, which is the point: two players who met the same dungeon and
+ * struggled with different words get different barriers.
  */
 export function pickBarrierWords(run: DungeonRunState, rng: () => number = Math.random): string[] {
   const want = barrierWordCount(run)
-  const met = run.config.dungeonWordIds.filter((id) => run.wordStats[id]?.introduced)
-  const unmet = run.config.dungeonWordIds.filter((id) => !run.wordStats[id]?.introduced)
   const shuffle = (ids: string[]) => {
     const out = [...ids]
     for (let i = out.length - 1; i > 0; i--) {
@@ -333,7 +358,36 @@ export function pickBarrierWords(run: DungeonRunState, rng: () => number = Math.
     }
     return out
   }
-  return [...shuffle(met), ...shuffle(unmet)].slice(0, want)
+
+  const missed: string[] = []
+  const unanswered: string[] = []
+  const known: string[] = []
+  const unmet: string[] = []
+  for (const id of run.config.dungeonWordIds) {
+    const stats = run.wordStats[id]
+    if (!stats?.introduced) unmet.push(id)
+    else if (stats.correct + stats.incorrect === 0) unanswered.push(id)
+    else if (stats.incorrect >= stats.correct) missed.push(id)
+    else known.push(id)
+  }
+
+  const by = (id: string) => run.wordStats[id]!
+  missed.sort((a, b) => {
+    const sa = by(a)
+    const sb = by(b)
+    if (sa.incorrect !== sb.incorrect) return sb.incorrect - sa.incorrect
+    return accuracyOf(sa) - accuracyOf(sb)
+  })
+  known.sort((a, b) => {
+    const sa = by(a)
+    const sb = by(b)
+    const accA = accuracyOf(sa)
+    const accB = accuracyOf(sb)
+    if (accA !== accB) return accA - accB
+    return sa.correct - sb.correct
+  })
+
+  return [...missed, ...shuffle(unanswered), ...known, ...shuffle(unmet)].slice(0, want)
 }
 
 function refreshKeyRoomUnlock(run: DungeonRunState): DungeonRunState {
