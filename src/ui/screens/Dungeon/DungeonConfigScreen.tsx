@@ -196,7 +196,12 @@ export function DungeonConfigScreen() {
               above a row of buttons, which said nothing about what the run
               was for. */}
           <div className="setup-pair">
-            <TotemPanel totem={totem} compact />
+            {/* Not `compact`: that variant carries its own padding, which
+                lands at the same specificity as the pair's and later in the
+                stylesheet, so it won and the two panels' rows sat eight
+                pixels out of line with each other. The pair defines this
+                panel's sizing. */}
+            <TotemPanel totem={totem} />
             <BossPanel world={world} tierId={tierId} totemLevel={totem.level} />
           </div>
 

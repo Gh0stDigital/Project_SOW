@@ -64,6 +64,16 @@
   --cool-glow: rgba(79, 227, 240, 0.35);
   --cool-sheen: rgba(79, 227, 240, 0.14);
 
+  /* The same window, lit the other way: what the player is looking *at*
+     rather than what they are playing. Used for the foe's portrait beside
+     their own, so the pair reads as a matchup at a glance rather than as
+     two identical boxes you have to read the labels of. */
+  --hot-edge: #9c382a;
+  --hot-bright: #f06a4f;
+  --hot-back: #301d1a;
+  --hot-glow: rgba(240, 106, 79, 0.35);
+  --hot-sheen: rgba(240, 106, 79, 0.16);
+
   --accent-cyan: #dcb87e;
   --accent-cyan-dim: #8a6636;
   --glow-cyan: rgba(220, 184, 126, 0.3);
@@ -855,14 +865,16 @@ select:focus {
 .setup-pair {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   align-items: stretch;
 }
 
 /* Both panels are told to fill their column, so a short one does not leave
    its half of the row hanging. */
 .setup-pair > * {
-  margin-top: 8px;
+  /* Room for the pinned tag that hangs off the top edge, and a little more
+     besides — at 8px the tags sat against the scene window above them. */
+  margin-top: 12px;
   height: 100%;
   min-width: 0;
 }
@@ -875,13 +887,14 @@ select:focus {
 .setup-pair .totem-panel {
   flex-direction: column;
   align-items: center;
-  gap: 8px;
-  padding: 14px 12px 12px;
+  gap: 12px;
+  padding: 18px 14px 14px;
 }
 
 .setup-pair .totem-panel .stats {
   width: 100%;
   min-width: 0;
+  gap: 6px;
 }
 
 .setup-pair .totem-panel .name-row {
@@ -901,9 +914,12 @@ select:focus {
   --avatar-h: 86px;
 }
 
-/* Stacked rather than side by side on a narrow screen: two of these at
-   180px each leaves no room for either a portrait or a name. */
-@media (max-width: 360px) {
+/* Stacked rather than side by side only on a genuinely narrow screen. At
+   360px each column is still 162px, which holds the 112px window and a
+   truncated name; below that the portrait itself stops fitting. Stacking
+   costs the screen a whole panel's height, so it is the last resort rather
+   than the first. */
+@media (max-width: 330px) {
   .setup-pair {
     grid-template-columns: 1fr;
   }
@@ -916,13 +932,13 @@ select:focus {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   background: var(--surface-panel);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 14px 12px 12px;
+  padding: 18px 14px 14px;
   /* Red where the Totem's is cyan. This is the thing that will kill you. */
-  box-shadow: 0 0 16px -6px var(--glow-red, rgba(224, 101, 79, 0.5));
+  box-shadow: 0 0 16px -6px var(--hot-glow);
 }
 
 .boss-panel .stats {
@@ -930,7 +946,7 @@ select:focus {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .boss-panel .name-row {
@@ -958,20 +974,42 @@ select:focus {
   white-space: nowrap;
 }
 
-/* Sized by height like the Totem portraits, for the same reason: the art
-   arrives tall and wide and the character occupies the height in both. */
+/* The foe stands in the same window the Totem does, lit the other way.
+   It was a bare sprite on the panel's own background, which read as a
+   sticker rather than as the other half of a matchup — and the Totem beside
+   it had a frame.
+
+   Everything structural here is the Totem frame's: sized by height with the
+   width falling out of the same 1.3 ratio, because the art has the same two
+   shapes and the character fills the height in both. Only the colour
+   differs. */
 .boss-panel-art {
+  --avatar-h: 86px;
+  flex: 0 0 auto;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  height: 86px;
-  width: 100%;
+  height: var(--avatar-h);
+  width: calc(var(--avatar-h) * 1.3);
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: var(--radius-tight);
+  border: 1px solid var(--hot-edge);
+  background:
+    radial-gradient(ellipse at 50% 64%, var(--hot-sheen), transparent 70%),
+    var(--hot-back);
+  box-shadow: 0 0 18px -8px var(--hot-glow), inset 0 0 26px -18px var(--hot-bright);
 }
 
+/* Sized by height and allowed past the window's sides, exactly as the Totem
+   portraits are — a wide sprite has to overflow the width so its height can
+   match everyone else's. */
 .boss-panel-art img {
+  flex: none;
   height: 100%;
   width: auto;
-  max-width: 100%;
+  max-width: none;
+  min-width: 0;
   object-fit: contain;
   image-rendering: pixelated;
 }
@@ -1120,7 +1158,16 @@ select:focus {
   color: var(--text-primary);
 }
 
-.totem-panel .hp-row {
+/* The number rows in both panels of the setup pair, and in the Totem panel
+   wherever else it appears.
+ *
+ * The boss panel was left out of this at first, so its HP ran at the
+ * inherited body size — wide enough that the row wrapped and the bar
+ * dropped to a line of its own, while the Totem's sat beside its number.
+ * Two panels meant to be read against each other, with their rows in
+ * different places. */
+.totem-panel .hp-row,
+.boss-panel .hp-row {
   display: flex;
   align-items: center;
   gap: 6px;
