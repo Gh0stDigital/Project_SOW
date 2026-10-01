@@ -517,7 +517,16 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     const world = resolveWorld(run.config.worldId)!
     // A boss does not roll — it stands at the bottom of its band, so the
     // deepest thing in a dungeon is always its guardian.
-    const boss = spawnBoss(world, `boss-${run.startedAt}`, enemyLevelRange(run.config.worldId, tier.id)[1], tier.id)
+    // Seeded by where you are rather than by when you arrived. A world's
+    // guardian is a fixture of the place, not a roll — and the setup screen
+    // shows you which one is down there before you commit, which it can only
+    // do honestly if the run agrees.
+    const boss = spawnBoss(
+      world,
+      `boss-${run.config.worldId}-${tier.id}`,
+      enemyLevelRange(run.config.worldId, tier.id)[1],
+      tier.id,
+    )
     // The barrier is a fixed number of words now, not one per word in the
     // pool — so a fifty-word run no longer needs fifty correct answers
     // before its boss can be touched. Drawn from the words this run actually

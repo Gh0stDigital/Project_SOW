@@ -848,6 +848,150 @@ select:focus {
   box-shadow: 0 0 16px -6px var(--glow-cyan);
 }
 
+/* The two halves of "what is this run": who you are taking, and who is
+   waiting at the bottom. Equal columns, because neither is the subordinate
+   of the other — the comparison between them is the decision this screen
+   exists to make. */
+.setup-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+/* Both panels are told to fill their column, so a short one does not leave
+   its half of the row hanging. */
+.setup-pair > * {
+  margin-top: 8px;
+  height: 100%;
+  min-width: 0;
+}
+
+/* The Totem panel is a row everywhere else — portrait beside stats — which
+   in half a screen's width means the portrait takes the lot and the stats
+   are pushed off the edge. In the pair it stands the way the boss does:
+   picture over name over numbers, so the two columns are the same shape and
+   can actually be compared. */
+.setup-pair .totem-panel {
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 12px 12px;
+}
+
+.setup-pair .totem-panel .stats {
+  width: 100%;
+  min-width: 0;
+}
+
+.setup-pair .totem-panel .name-row {
+  font-size: 13px;
+}
+
+/* A long Totem name must not push its level off the end of half a screen. */
+.setup-pair .totem-panel .name-row .name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Matched to .boss-panel-art, so the two characters are drawn at one size
+   and neither looks like the more important of the two. */
+.setup-pair .avatar-frame {
+  --avatar-h: 86px;
+}
+
+/* Stacked rather than side by side on a narrow screen: two of these at
+   180px each leaves no room for either a portrait or a name. */
+@media (max-width: 360px) {
+  .setup-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Built from the Totem panel's parts — same window, same pinned tag — so
+   the pair reads as one row of two rather than as two unrelated widgets. */
+.boss-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 14px 12px 12px;
+  /* Red where the Totem's is cyan. This is the thing that will kill you. */
+  box-shadow: 0 0 16px -6px var(--glow-red, rgba(224, 101, 79, 0.5));
+}
+
+.boss-panel .stats {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.boss-panel .name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.boss-panel .name-row .name {
+  font-weight: 700;
+  /* A long name — "Dragon Warrior Warden" — must not push the level off the
+     end of a half-width panel. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* And the level must not be the thing that gives way: "Lv 100" wrapping to
+   its own line over a truncated name is the worst of both. */
+.boss-panel .name-row .muted,
+.setup-pair .totem-panel .name-row .muted {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* Sized by height like the Totem portraits, for the same reason: the art
+   arrives tall and wide and the character occupies the height in both. */
+.boss-panel-art {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 86px;
+  width: 100%;
+}
+
+.boss-panel-art img {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.boss-panel-standing {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.boss-panel-standing.warn {
+  color: var(--accent-red);
+  font-weight: 700;
+}
+
+/* The boss's bar is always full — it is a statement of how much there is to
+   get through, not a live reading. */
+.boss-panel .bar-fill {
+  background: linear-gradient(90deg, #8c3a2c, #e0654f);
+}
+
 /* Pinned label, matching .scene-tag, so the totem panel reads as its own
    "window" alongside the scene window instead of a thin status strip. */
 .totem-panel-tag {
@@ -2374,24 +2518,14 @@ select:focus {
    the space allows instead of the size a square permits.
 
    Only here. In the run the same panel is a status readout competing with
-   the scene window, and it stays compact. */
+   the scene window, and it stays compact.
 
-.dungeon-config .totem-panel {
-  padding: 16px 16px 14px;
-  gap: 16px;
-}
-
-.dungeon-config .avatar-frame {
-  --avatar-h: clamp(120px, 19dvh, 168px);
-}
-
-.dungeon-config .totem-panel .name-row {
-  font-size: 18px;
-}
-
-.dungeon-config .totem-panel .stats {
-  gap: 8px;
-}
+   The sizing that used to live here — a portrait of up to 168px, with the
+   padding and type to match — was written when this panel had the row to
+   itself. It shares it with the boss now, and those numbers fought the
+   pair's own: same specificity, later in the file, so the portrait went on
+   being drawn at hero size and overflowed its half of the row. The pair
+   rules up in `.setup-pair` are the sizing for this screen now. */
 
 .scene-window.compact {
   height: 19dvh;

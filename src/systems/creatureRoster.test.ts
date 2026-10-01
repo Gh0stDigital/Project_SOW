@@ -19,7 +19,9 @@ import { isTotemUnlocked } from '@/config/progression'
 import { creatureRecipe, forgeRecipeFor } from '@/config/forging'
 import { payForRecipe, recipeForTotemKey, startingLevelForKey } from './forge'
 import { getMaterialDef } from '@/config/materials'
-import { dungeonTiers, totemBalance } from '@/config/balance'
+import { dungeonTiers, enemyLevelRange, totemBalance } from '@/config/balance'
+import { bossPreview, bossSeed } from './bossPreview'
+import { bossHpForLevel } from './enemyLevel'
 
 const DKP = 'dragon-king-palace'
 const world = findWorld(DKP)!
@@ -297,5 +299,66 @@ describe('what is shown is what is charged', () => {
   it('agrees with the bench about the level too', () => {
     expect(startingLevelForKey(ryu)).toBe(creatureStartingLevel(ryu).level)
     expect(startingLevelForKey('Dolbae')).toBe(1)
+  })
+})
+
+describe('the setup screen shows the boss you will actually meet', () => {
+  it('previews the cast boss for each tier, with its level and HP', () => {
+    const expected: Record<string, string> = {
+      tier10: 'minotaur',
+      tier25: 'waterDragonRyu',
+      tier50: 'dragonWarriorWarden',
+    }
+    for (const tier of dungeonTiers) {
+      const preview = bossPreview(world, tier.id)!
+      expect(preview.slot).toBe(expected[tier.id])
+      expect(preview.folder).toBe('bosses')
+      expect(preview.name).toBe(nameFromSlot(expected[tier.id]))
+      // A boss stands at the top of its band rather than rolling.
+      expect(preview.level).toBe(enemyLevelRange(DKP, tier.id)[1])
+      expect(preview.maxHp).toBe(bossHpForLevel(preview.level))
+    }
+  })
+
+  it('agrees with the boss the run spawns, down to the art', () => {
+    // The point of the fixed seed. A time-seeded boss meant the preview was
+    // a guess for any world without a cast, and the screen would have been
+    // quietly lying on exactly the worlds that need the help most.
+    for (const pack of [world, findWorld('starter')!]) {
+      for (const tier of dungeonTiers) {
+        const preview = bossPreview(pack, tier.id)!
+        const spawned = spawnBoss(
+          pack,
+          bossSeed(pack.id, tier.id),
+          enemyLevelRange(pack.id, tier.id)[1],
+          tier.id,
+        )
+        expect(spawned.image).toEqual({ folder: preview.folder, slot: preview.slot })
+        expect(spawned.name).toBe(preview.name)
+        expect(spawned.level).toBe(preview.level)
+        expect(spawned.maxHp).toBe(preview.maxHp)
+      }
+    }
+  })
+
+  it('gives the same answer every time it is asked', () => {
+    expect(bossPreview(world, 'tier25')).toEqual(bossPreview(world, 'tier25'))
+  })
+
+  it('shows nothing rather than a gap when there is no world', () => {
+    expect(bossPreview(undefined, 'tier10')).toBeNull()
+  })
+
+  it('gets deeper with the tier', () => {
+    const levels = dungeonTiers.map((t) => bossPreview(world, t.id)!.level)
+    for (let i = 1; i < levels.length; i++) expect(levels[i]).toBeGreaterThan(levels[i - 1])
+  })
+
+  it('does not count as having met it', () => {
+    // Reading a menu is not fighting. Otherwise the whole bestiary would
+    // unlock from the setup screen without a single dungeon.
+    const preview = bossPreview(world, 'tier50')!
+    const key = creatureKey({ worldId: DKP, folder: preview.folder, slot: preview.slot })
+    expect(isTotemUnlocked(key, [])).toBe(false)
   })
 })

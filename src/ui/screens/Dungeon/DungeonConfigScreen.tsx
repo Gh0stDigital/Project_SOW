@@ -6,6 +6,7 @@ import { TopBar } from '@/ui/components/TopBar'
 import { WorldImage } from '@/ui/components/WorldImage'
 import { playableWorlds, incompleteWorlds, resolveWorld } from '@/systems/worldRegistry'
 import { TotemPanel } from '@/ui/components/TotemPanel'
+import { BossPanel } from '@/ui/components/BossPanel'
 import { SlidePanel } from '@/ui/components/SlidePanel'
 import {
   dungeonTiers,
@@ -190,7 +191,14 @@ export function DungeonConfigScreen() {
             <span className="scene-tag">{world?.name ?? tier.label}</span>
           </div>
 
-          <TotemPanel totem={totem} />
+          {/* Who you are taking, and who is waiting. Side by side because
+              the comparison is the decision — the panels were a Totem alone
+              above a row of buttons, which said nothing about what the run
+              was for. */}
+          <div className="setup-pair">
+            <TotemPanel totem={totem} compact />
+            <BossPanel world={world} tierId={tierId} totemLevel={totem.level} />
+          </div>
 
           <div className="setup-grid">
             <button className="setup-option" onClick={() => setOpenSetting('world')}>
