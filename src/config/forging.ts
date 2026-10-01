@@ -17,7 +17,8 @@
 
 import type { MaterialId } from '@/domain/material'
 import { getMaterialDef } from './materials'
-import { resolvedKey } from './assets'
+import { hasAsset, resolvedKey } from './assets'
+import { powerBalance } from './balance'
 
 export interface ForgeIngredient {
   materialId: MaterialId
@@ -37,10 +38,13 @@ export interface ForgeRecipe {
  * separators dropped, a `totem_` prefix ignored — so a recipe survives the
  * portrait being renamed from `totem_silverKnight` to `Silver Knight`.
  */
-function normalizeKey(key: string): string {
-  const resolved = resolvedKey('totems', key) || key
-  const flat = resolved.toLowerCase().replace(/[^a-z0-9]/g, '')
+function flatten(key: string): string {
+  const flat = key.toLowerCase().replace(/[^a-z0-9]/g, '')
   return flat.startsWith('totem') ? flat.slice('totem'.length) : flat
+}
+
+function normalizeKey(key: string): string {
+  return flatten(resolvedKey('totems', key) || key)
 }
 
 /**
@@ -64,29 +68,28 @@ function hashOf(key: string): number {
 }
 
 /**
- * A recipe for a portrait nobody has priced yet.
+ * The shape of a recipe: which materials, how many, and the fee.
  *
- * Deterministic in the key, so the same Totem always costs the same thing
- * across launches and across devices — a price that moved when the page
- * reloaded would be worse than no price at all. The shape is always the
- * same: a deep ingredient, a shallower one to pad it out, and a fee.
+ * `grade` picks the shelf the ingredients come off; `key` picks which of
+ * them and how many, deterministically, so the same name always costs the
+ * same thing across launches and across devices. A price that moved when
+ * the page reloaded would be worse than no price at all.
  */
-export function provisionalRecipe(avatarKey: string): ForgeRecipe {
-  const key = normalizeKey(avatarKey)
+function recipeAtGrade(key: string, grade: number): ForgeRecipe {
   const h = hashOf(key)
-  const grade = h % GRADES.length
-  const tier = GRADES[grade]
+  const g = Math.max(0, Math.min(GRADES.length - 1, grade))
+  const tier = GRADES[g]
   // Unsigned shifts throughout. `>>` is signed, so a hash with its top bit
   // set shifts to a negative number, and a negative index into the grade
   // table is an undefined material — a recipe asking for nothing at all.
   const lead = tier[h % tier.length]
   const second = tier[(h >>> 3) % tier.length]
-  const lower = GRADES[Math.max(0, grade - 1)]
+  const lower = GRADES[Math.max(0, g - 1)]
   const filler = lower[(h >>> 6) % lower.length]
 
   // Quantities land in a band that reads as a shopping list rather than as
   // a random number: more of the cheap thing, few of the rare one.
-  const leadQty = 2 + (grade === 2 ? 1 : 0) + ((h >>> 9) % 2)
+  const leadQty = 2 + (g === 2 ? 1 : 0) + ((h >>> 9) % 2)
   const secondQty = lead === second ? 0 : 3 + ((h >>> 11) % 3)
   const fillerQty = filler === lead || filler === second ? 0 : 4 + ((h >>> 13) % 4)
 
@@ -106,6 +109,76 @@ export function provisionalRecipe(avatarKey: string): ForgeRecipe {
   const money = Math.round((materialValue * 0.4) / 5) * 5
 
   return { ingredients, money, provisional: true }
+}
+
+/**
+ * A recipe for a portrait nobody has priced yet.
+ *
+ * A portrait has no level to read a grade off — it starts at 1 like every
+ * other — so the grade comes from the name as well, which spreads the
+ * roster across the three shelves instead of making them all cost stones.
+ */
+export function provisionalRecipe(avatarKey: string): ForgeRecipe {
+  // An art key resolves through the portrait registry so a rename keeps its
+  // price; anything else is taken as written, because resolving it would
+  // answer with a portrait that has nothing to do with it.
+  const key = hasAsset('totems', avatarKey) ? normalizeKey(avatarKey) : flatten(avatarKey)
+  return recipeAtGrade(key, hashOf(key) % GRADES.length)
+}
+
+/**
+ * Which shelf a creature's ingredients come off, from where it starts.
+ *
+ * Read off the level rather than off the name, which is the whole
+ * difference between a creature and a portrait. Hashing the name gave a
+ * level-5 goblin a recipe of dragon horns and a level-35 minotaur one of
+ * river pebbles — the totals scaled, so it was not cheap, but you could buy
+ * something from the deep with a sack of shallow junk. A creature now costs
+ * materials from its own depth.
+ */
+function gradeForLevel(startingLevel: number): number {
+  if (startingLevel <= 10) return 0
+  if (startingLevel < 50) return 1
+  return 2
+}
+
+/**
+ * What a creature costs on top of a portrait of the same name.
+ *
+ * A portrait starts at level 1 and has to be raised; a creature arrives
+ * already grown, and the levels it skips are the thing being bought. The
+ * multiplier is the same power curve the rest of the game is drawn at, so a
+ * level-50 Ryu costs what fifty levels are worth rather than a number
+ * somebody picked.
+ */
+function creatureMultiplier(startingLevel: number): number {
+  return powerBalance.scale(Math.max(1, startingLevel))
+}
+
+/**
+ * The recipe for a creature: its design's recipe, scaled by where it starts.
+ *
+ * Quantities and fee both climb, so a deep creature is a long dig as well as
+ * an expensive one. Separate from forgeRecipeFor() because a creature key
+ * names world art and carries a level with it; the base shape still comes
+ * from the same deterministic derivation, keyed on the creature's own slot.
+ */
+export function creatureRecipe(slotKey: string, startingLevel: number): ForgeRecipe {
+  // Flattened rather than resolved: a creature's slot names world art, and
+  // resolvedKey() answers a key the totems folder does not hold with that
+  // folder's fallback — which would have given every creature in the game
+  // the same recipe as one portrait.
+  const flat = flatten(slotKey)
+  const base = authored[flat] ?? recipeAtGrade(flat, gradeForLevel(startingLevel))
+  const mult = creatureMultiplier(startingLevel)
+  return {
+    ingredients: base.ingredients.map((i) => ({
+      ...i,
+      quantity: Math.max(1, Math.round(i.quantity * mult)),
+    })),
+    money: Math.round((base.money * mult) / 5) * 5,
+    provisional: true,
+  }
 }
 
 /** The recipe for a portrait: the authored one where there is one. */

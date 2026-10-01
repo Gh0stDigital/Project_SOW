@@ -1,4 +1,6 @@
 import { worldPacks, type WorldPack } from '@/config/worldManifest'
+import { bossSlotFor } from '@/config/bosses'
+import type { DungeonTierId } from '@/config/balance'
 
 /**
  * The Unwritten Worlds registry.
@@ -84,10 +86,25 @@ export function resolveSlot(
 }
 
 /**
- * The art a boss should use. A world may ship its own; one that doesn't
- * borrows an enemy, so a pack is complete without boss art.
+ * The art a boss should use.
+ *
+ * A cast world names its boss per tier (config/bosses.ts), so the three
+ * depths have three faces and you meet them in order. Anything else falls
+ * back to the seeded pick: a world may ship its own bosses folder, and one
+ * that doesn't borrows an enemy, so a pack is complete without boss art.
+ *
+ * A named boss the world does not actually ship falls through to the pick
+ * rather than to a blank, which keeps a typo or a half-added world playable.
  */
-export function bossSlot(world: WorldPack, seed: string): { folder: WorldFolder; slot: string } | null {
+export function bossSlot(
+  world: WorldPack,
+  seed: string,
+  tierId?: DungeonTierId,
+): { folder: WorldFolder; slot: string } | null {
+  if (tierId) {
+    const cast = bossSlotFor(world.id, tierId)
+    if (cast && world.bosses.includes(cast)) return { folder: 'bosses', slot: cast }
+  }
   const pool = world.bosses.length > 0 ? world.bosses : world.enemies
   const folder: WorldFolder = world.bosses.length > 0 ? 'bosses' : 'enemies'
   if (pool.length === 0) return null

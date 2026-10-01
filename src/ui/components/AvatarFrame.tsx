@@ -1,4 +1,4 @@
-import { AssetImage } from './AssetImage'
+import { TotemPortrait } from './TotemPortrait'
 
 /** How large the window is. The window itself never changes shape. */
 export type AvatarSize = 'hud' | 'setup' | 'hero' | 'tile'
@@ -33,7 +33,7 @@ interface AvatarFrameProps {
 export function AvatarFrame({ assetKey, alt, size = 'hud', hit, className }: AvatarFrameProps) {
   return (
     <span className={`avatar-frame avatar-frame-${size}${hit ? ' is-hit' : ''}${className ? ` ${className}` : ''}`}>
-      <AssetImage category="totems" assetKey={assetKey} alt={alt} className="avatar-img" />
+      <TotemPortrait assetKey={assetKey} alt={alt} className="avatar-img" />
     </span>
   )
 }

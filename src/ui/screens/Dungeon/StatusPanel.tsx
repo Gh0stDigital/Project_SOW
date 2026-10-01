@@ -3,7 +3,7 @@ import type { Totem } from '@/domain/totem'
 import type { SpellSet } from '@/domain/spellSet'
 import { totemBalance, dungeonTiers } from '@/config/balance'
 import { SlidePanel } from '@/ui/components/SlidePanel'
-import { AssetImage } from '@/ui/components/AssetImage'
+import { TotemPortrait } from '@/ui/components/TotemPortrait'
 import { Bar } from '@/ui/components/Bar'
 import { UiIcon } from '@/ui/components/UiIcon'
 import { usePersistentStore } from '@/state/persistentStore'
@@ -27,7 +27,7 @@ export function StatusPanel({ totem, run, totemSet, challenged, onClose }: Statu
     <SlidePanel title="상태" onClose={onClose}>
       <section className="status-hero">
         <div className="status-portrait">
-          <AssetImage category="totems" assetKey={totem.avatarKey} alt={totem.name} className="avatar-img avatar-hero" />
+          <TotemPortrait assetKey={totem.avatarKey} alt={totem.name} className="avatar-img avatar-hero" />
         </div>
         <div className="status-hero-body">
           <h2>{totem.name}</h2>

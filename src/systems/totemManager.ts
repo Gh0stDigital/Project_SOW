@@ -2,6 +2,7 @@ import type { Totem } from '@/domain/totem'
 import { totemBalance, type DungeonTierId } from '@/config/balance'
 import { STARTING_TOTEM_KEY } from '@/config/progression'
 import { makeId } from './idGen'
+import { creatureName, isCreatureKey } from './creatureTotems'
 
 /**
  * A readable name from a portrait key: `totem_silverKnight` -> "Silver
@@ -9,6 +10,9 @@ import { makeId } from './idGen'
  * already named after the art rather than as another "토템".
  */
 export function nameFromAvatarKey(avatarKey: string): string {
+  // A creature carries its world and folder in its key, so the plain rules
+  // below would read the whole path as a name.
+  if (isCreatureKey(avatarKey)) return creatureName(avatarKey) || STARTING_TOTEM_KEY
   // The fallback portrait is a code concept, not somebody's artwork, so it
   // stands in for the Totem the game starts you as rather than for the word
   // "totem".
@@ -45,8 +49,17 @@ export function nameFromAvatarKey(avatarKey: string): string {
  */
 export const STARTING_AVATAR = STARTING_TOTEM_KEY
 
-export function createTotem(name: string, avatarKey = STARTING_AVATAR): Totem {
-  const level = 1
+/**
+ * Raises a Totem at a level.
+ *
+ * Portraits start at 1 and are raised; a creature arrives already grown,
+ * which is the whole reason to fight your way to one. HP comes from the
+ * level it starts at rather than from level 1, so a level-50 Ryu is a
+ * level-50 Ryu from its first step rather than one with a novice's health
+ * bar.
+ */
+export function createTotem(name: string, avatarKey = STARTING_AVATAR, startingLevel = 1): Totem {
+  const level = Math.max(1, Math.min(totemBalance.maxLevel, Math.round(startingLevel)))
   return {
     id: makeId('totem'),
     name: name.trim() || STARTING_TOTEM_KEY,

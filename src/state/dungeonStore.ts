@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { Spell } from '@/domain/spell'
 import type { DirectionChoice, DungeonConfig, DungeonRunState, RewardBundle } from '@/domain/dungeon'
 import { emptyRewardBundle, introducedCount } from '@/domain/dungeon'
-import type { BattleState } from '@/domain/battle'
+import type { BattleState, EnemyCombatant } from '@/domain/battle'
 import type { ItemId } from '@/domain/item'
 import {
   battleBalance,
@@ -20,6 +20,7 @@ import { mimicBalance, treasureBalance, trapBalance } from '@/config/dungeonEven
 import { getItemDef, itemBalance } from '@/config/items'
 import { getMaterialDef, materialBalance } from '@/config/materials'
 import { rollMaterialChance, rollMaterialDrops } from '@/systems/materials'
+import { creatureKeyForImage } from '@/systems/creatureTotems'
 import { mimicRevealText } from '@/systems/eventContent'
 import {
   startDungeon,
@@ -273,6 +274,20 @@ function withRestNpcs(run: DungeonRunState): DungeonRunState {
 }
 
 /**
+ * Notes that this foe has been met, which is what puts it in the
+ * blacksmith's window as a design he could strike.
+ *
+ * Called at the moment a fight starts rather than when one is won: meeting
+ * a thing is seeing it, and a creature that beat you is exactly the one you
+ * would want to come back wearing. A Mimic records nothing — it fights
+ * dressed as a chest, and `events/treasureMimic` is a prop.
+ */
+function noteCreatureSeen(worldId: string, enemy: EnemyCombatant) {
+  const key = creatureKeyForImage(worldId, enemy.image)
+  if (key) usePersistentStore.getState().recordCreatureSeen(key)
+}
+
+/**
  * Rolls a material drop for the tier being played and folds it in.
  *
  * Tier rather than world, because the tier is what the drop tables are cut
@@ -502,11 +517,12 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     const world = resolveWorld(run.config.worldId)!
     // A boss does not roll — it stands at the bottom of its band, so the
     // deepest thing in a dungeon is always its guardian.
-    const boss = spawnBoss(world, `boss-${run.startedAt}`, enemyLevelRange(run.config.worldId, tier.id)[1])
+    const boss = spawnBoss(world, `boss-${run.startedAt}`, enemyLevelRange(run.config.worldId, tier.id)[1], tier.id)
     // The barrier is a fixed number of words now, not one per word in the
     // pool — so a fifty-word run no longer needs fifty correct answers
     // before its boss can be touched. Drawn from the words this run actually
     // taught.
+    noteCreatureSeen(run.config.worldId, boss)
     const bossBattle = startBattle(boss, totemDeckIds(run), pickBarrierWords(run))
     const run2 = consumeKey(setState(run, 'BossBattle'))
     set({ run: { ...run2, currentEvent: null, standbyNotice: null }, battle: bossBattle, stage: 'intro', activePanel: null, confirmingBoss: false })
@@ -662,6 +678,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
 
     if (run.state === 'ResolvingEvent' && event?.type === 'battle') {
       const enemy = spawnEnemy(resolveWorld(run.config.worldId)!, event.id, rollLevel(run))
+      noteCreatureSeen(run.config.worldId, enemy)
       set({
         run: setState(run, 'Battle'),
         battle: startBattle(enemy, totemDeckIds(run), null),

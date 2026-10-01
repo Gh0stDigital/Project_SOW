@@ -3,6 +3,20 @@ import type { SpellSet } from '@/domain/spellSet'
 import type { Totem } from '@/domain/totem'
 import { type Element, elementFor } from '@/config/wordTypes'
 import { loreFor } from '@/config/totemLore'
+import { creatureWorldName, isCreatureKey } from './creatureTotems'
+
+/** What a creature is, in place of a portrait's written kind. */
+function creatureLoreKind(avatarKey: string): string {
+  const where = creatureWorldName(avatarKey)
+  return where ? `${where}의 것` : '잡아 본 것'
+}
+
+function creatureLoreText(avatarKey: string): string {
+  const where = creatureWorldName(avatarKey)
+  return where
+    ? `${where}에서 마주쳤던 것입니다. 대장간에서 벼려 내 이제 당신 편에 섭니다.`
+    : '던전에서 마주쳤던 것입니다. 대장간에서 벼려 내 이제 당신 편에 섭니다.'
+}
 import { resolvedKey } from '@/config/assets'
 
 /**
@@ -68,7 +82,15 @@ export function totemCard(totem: Totem, spells: Spell[], sets: SpellSet[]): Tote
   const deck = equippedSpells(totem, spells, sets)
   // Through the same resolution the portrait itself goes through, so the
   // words on the card belong to the face on it.
-  const lore = loreFor(resolvedKey('totems', totem.avatarKey))
+  //
+  // A creature is the exception: its key names world art, and resolvedKey()
+  // answers a key the portrait folder does not hold with that folder's
+  // fallback — so a minotaur would have been handed a stranger's biography.
+  // It gets its own line instead, which is all there is to say about a thing
+  // you fought and then wore.
+  const lore = isCreatureKey(totem.avatarKey)
+    ? { kind: creatureLoreKind(totem.avatarKey), description: creatureLoreText(totem.avatarKey) }
+    : loreFor(resolvedKey('totems', totem.avatarKey))
   return {
     name: totem.name,
     kind: lore.kind,

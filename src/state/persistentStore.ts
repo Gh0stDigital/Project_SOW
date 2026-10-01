@@ -28,8 +28,8 @@ import { STARTING_TOTEM_KEY, isTotemUnlocked } from '@/config/progression'
 import type { MaterialEntry, MaterialId } from '@/domain/material'
 import { addMaterial, removeMaterial, countOfMaterial, sellPrice } from '@/systems/materials'
 import { findMaterialDef } from '@/config/materials'
-import { forgeRecipeFor } from '@/config/forging'
-import { payForRecipe } from '@/systems/forge'
+import { payForRecipe, recipeForTotemKey, startingLevelForKey } from '@/systems/forge'
+import { creatureExists } from '@/systems/creatureTotems'
 import { migrateSpells } from '@/systems/spellMigration'
 import { totemBalance } from '@/config/balance'
 
@@ -80,6 +80,14 @@ export interface PersistedData {
    */
   materials: MaterialEntry[]
   /**
+   * Creatures this save has met in a dungeon, as creature keys.
+   *
+   * Meeting one is what puts it in the blacksmith's window; it still has to
+   * be paid for. Kept per save rather than per Totem because a bestiary is
+   * something the player has seen, not something a character did.
+   */
+  seenCreatures: string[]
+  /**
    * Portraits the blacksmith has struck for this save.
    *
    * The build ships one open Totem (config/progression.ts); this is the
@@ -107,6 +115,7 @@ function defaultData(): PersistedData {
     lastDungeonSelection: { totemSpellSetId: null, dungeonSpellSetId: null, tierId: 'tier10' },
     inventory: itemBalance.startingInventory.map((e) => ({ ...e })),
     materials: [],
+    seenCreatures: [],
     forgedTotemKeys: [],
     // A brand-new save has seen everything shipping with it: a first launch
     // should not announce the whole catalogue as new.
@@ -163,6 +172,9 @@ function loadInitial(): PersistedData {
     // absent one means empty, which is exactly right: nothing was ever
     // picked up, and nothing was ever struck.
     materials: (saved.materials ?? defaults.materials).filter((e) => e.quantity > 0),
+    // A creature whose art this build no longer has is dropped on load, so
+    // the workshop never offers a design it cannot draw.
+    seenCreatures: (saved.seenCreatures ?? defaults.seenCreatures).filter(creatureExists),
     forgedTotemKeys: saved.forgedTotemKeys ?? defaults.forgedTotemKeys,
     // Saves written before this existed have seen nothing recorded, but they
     // have plainly seen the worlds that shipped with them — treat an absent
@@ -210,6 +222,11 @@ export interface PersistentStore extends PersistedData {
   /** Spends up to `amount`, never below zero. Returns what was actually spent. */
   spendMoney(amount: number): number
 
+  /**
+   * Records that a creature has been met, which is what puts it in the
+   * blacksmith's window. Idempotent — you meet a slime rather a lot.
+   */
+  recordCreatureSeen(key: string): void
   /** Drops a material or treasure into the bag. */
   grantMaterial(materialId: MaterialId, quantity?: number): void
   /**
@@ -346,6 +363,12 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
     set((state) => ({ money: Math.max(0, state.money + Math.round(amount)) }))
   },
 
+  recordCreatureSeen(key) {
+    if (!creatureExists(key)) return
+    set((state) =>
+      state.seenCreatures.includes(key) ? state : { seenCreatures: [...state.seenCreatures, key] },
+    )
+  },
   grantMaterial(materialId, quantity = 1) {
     // An id this build has no definition for is dropped on the floor rather
     // than stored: an unsellable, unusable stack is worse than no stack.
@@ -371,10 +394,13 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
   },
   forgeTotem(avatarKey, name) {
     const state = get()
-    const paid = payForRecipe(forgeRecipeFor(avatarKey), state.materials, state.money)
+    // The same resolver the workshop prices with, so what is shown and what
+    // is charged cannot drift apart.
+    const paid = payForRecipe(recipeForTotemKey(avatarKey), state.materials, state.money)
     if (!paid.forged) return null
 
-    const totem = createTotem(name ?? nameFromAvatarKey(avatarKey), avatarKey)
+    // A creature arrives at the level its kind starts at; a portrait at 1.
+    const totem = createTotem(name ?? nameFromAvatarKey(avatarKey), avatarKey, startingLevelForKey(avatarKey))
     set((s) => ({
       materials: paid.bag,
       money: paid.money,
@@ -430,6 +456,7 @@ usePersistentStore.subscribe((state) => {
     lastDungeonSelection,
     inventory,
     materials,
+    seenCreatures,
     forgedTotemKeys,
     seenContent,
   } = state
@@ -443,6 +470,7 @@ usePersistentStore.subscribe((state) => {
     lastDungeonSelection,
     inventory,
     materials,
+    seenCreatures,
     forgedTotemKeys,
     seenContent,
   })

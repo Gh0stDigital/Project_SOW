@@ -5,7 +5,7 @@ import { allWorlds } from '@/systems/worldRegistry'
 import { assetKeys, optionalAsset } from '@/config/assets'
 import { nameFromSlot } from '@/systems/worldRegistry'
 import { usePersistentStore } from '@/state/persistentStore'
-import { AssetImage } from '@/ui/components/AssetImage'
+import { TotemPortrait } from '@/ui/components/TotemPortrait'
 import { Bar } from '@/ui/components/Bar'
 import { totemBalance } from '@/config/balance'
 import { AudioSettings } from '@/ui/components/AudioSettings'
@@ -101,12 +101,7 @@ export function MainMenuScreen() {
       {totem && (
         <button className="totem-banner" onClick={() => goTo('totem')}>
           <span className="totem-banner-tag">내 토템</span>
-          <AssetImage
-            category="totems"
-            assetKey={totem.avatarKey}
-            alt={totem.name}
-            className="avatar-img avatar-hero"
-          />
+          <TotemPortrait assetKey={totem.avatarKey} alt={totem.name} className="avatar-img avatar-hero" />
           <div className="totem-banner-body">
             <div className="name-row">
               <span className="name">{totem.name}</span>

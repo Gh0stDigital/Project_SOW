@@ -18,6 +18,7 @@
 
 import { dungeonTiers, type DungeonTierId } from './balance'
 import { hasAsset, resolvedKey } from './assets'
+import { creatureExists, isCreatureKey } from '@/systems/creatureTotems'
 
 // ---------------------------------------------------------------------------
 // Totems
@@ -52,9 +53,18 @@ export const unlockedTotemKeys: readonly string[] = [STARTING_TOTEM_KEY]
  * both. It defaults to empty, which is what a fresh save has.
  */
 export function isTotemUnlocked(avatarKey: string, forged: readonly string[] = []): boolean {
+  // A creature is never shipped open — it has to be met and then struck —
+  // and its key names world art rather than a portrait, so the loose
+  // portrait resolution below would answer for the wrong thing entirely.
+  // An exact match against what this save has forged is the whole rule.
+  if (isCreatureKey(avatarKey)) {
+    return creatureExists(avatarKey) && forged.includes(avatarKey)
+  }
   if (!hasAsset('totems', avatarKey)) return false
   const asked = resolvedKey('totems', avatarKey)
-  return [...unlockedTotemKeys, ...forged].some((key) => resolvedKey('totems', key) === asked)
+  return [...unlockedTotemKeys, ...forged].some(
+    (key) => !isCreatureKey(key) && resolvedKey('totems', key) === asked,
+  )
 }
 
 // ---------------------------------------------------------------------------

@@ -1570,6 +1570,20 @@ select:focus {
   align-self: stretch;
 }
 
+/* The bestiary's heading, so the two shelves read as two shelves. */
+.forge-heading {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+
+/* A creature's pitch: it starts grown. A portrait says nothing here, since
+   every portrait starts at 1. */
+.forge-design-level {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-cyan-dim, var(--accent-gold));
+}
+
 .forge-sheet-head {
   display: flex;
   align-items: flex-start;

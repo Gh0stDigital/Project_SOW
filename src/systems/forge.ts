@@ -7,9 +7,40 @@
  */
 
 import type { MaterialEntry } from '@/domain/material'
-import type { ForgeIngredient, ForgeRecipe } from '@/config/forging'
+import { creatureRecipe, forgeRecipeFor, type ForgeIngredient, type ForgeRecipe } from '@/config/forging'
 import { findMaterialDef } from '@/config/materials'
 import { countOfMaterial, removeMaterial } from './materials'
+import { creatureStartingLevel, isCreatureKey, parseCreatureKey } from './creatureTotems'
+
+/**
+ * The recipe for anything the blacksmith can strike, portrait or creature.
+ *
+ * The one place that decides, because the screen that shows a price and the
+ * store that charges it must not be able to disagree. They did: the bench
+ * priced a creature with creatureRecipe() while the store paid
+ * forgeRecipeFor(), which resolves a creature's key through the *portrait*
+ * folder and answers with whatever that folder falls back to — so a Ryu
+ * advertised at 305 coins and a bag of dragon horns was handed over for 35
+ * and a few river stones.
+ *
+ * It lives here rather than in config/forging.ts because a creature's price
+ * depends on its starting level, and reading that means knowing about
+ * worlds — which is a system's business, not configuration's.
+ */
+export function recipeForTotemKey(avatarKey: string): ForgeRecipe {
+  if (!isCreatureKey(avatarKey)) return forgeRecipeFor(avatarKey)
+  const ref = parseCreatureKey(avatarKey)
+  // A key that parses to nothing cannot name art either, so it will be
+  // refused before it is paid for; pricing it as a portrait keeps the
+  // function total rather than throwing on the way to that refusal.
+  if (!ref) return forgeRecipeFor(avatarKey)
+  return creatureRecipe(ref.slot, creatureStartingLevel(avatarKey).level)
+}
+
+/** The level a Totem struck from this key begins at. */
+export function startingLevelForKey(avatarKey: string): number {
+  return isCreatureKey(avatarKey) ? creatureStartingLevel(avatarKey).level : 1
+}
 
 export interface IngredientCheck extends ForgeIngredient {
   /** How many of it the player is carrying. */

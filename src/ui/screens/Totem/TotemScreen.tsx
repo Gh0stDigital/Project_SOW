@@ -10,6 +10,7 @@ import { totemBalance } from '@/config/balance'
 import { assetKeys, resolvedKey } from '@/config/assets'
 import { isUsable } from '@/systems/totemManager'
 import { loreFor } from '@/config/totemLore'
+import { isCreatureKey } from '@/systems/creatureTotems'
 import { UiIcon } from '@/ui/components/UiIcon'
 
 export function TotemScreen() {
@@ -128,7 +129,11 @@ export function TotemScreen() {
               className="totem-desc-input"
               rows={5}
               value={descDraft}
-              placeholder={loreFor(resolvedKey('totems', totem.avatarKey)).description}
+              placeholder={
+                isCreatureKey(totem.avatarKey)
+                  ? '던전에서 마주쳤던 것입니다.'
+                  : loreFor(resolvedKey('totems', totem.avatarKey)).description
+              }
               onChange={(e) => setDescDraft(e.target.value)}
             />
             <div className="btn-row" style={{ justifyContent: 'flex-end' }}>

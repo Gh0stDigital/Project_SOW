@@ -8,7 +8,7 @@ import type {
 } from '@/domain/battle'
 import type { Challenge } from '@/domain/challenge'
 import type { WordRunStats } from '@/domain/dungeon'
-import { battleBalance } from '@/config/balance'
+import { battleBalance, type DungeonTierId } from '@/config/balance'
 import { bossHpForLevel, enemyDamageForLevel, enemyHpForLevel, levelGap } from './enemyLevel'
 import { mimicBalance } from '@/config/dungeonEvents'
 import type { WorldPack } from '@/config/worldManifest'
@@ -95,13 +95,22 @@ export function spawnMimic(world: WorldPack, seed: string, level: number): Enemy
  * underlings it does not roll: a boss is always the strongest thing down
  * there.
  */
-export function spawnBoss(world: WorldPack, seed: string, level: number): EnemyCombatant {
+export function spawnBoss(
+  world: WorldPack,
+  seed: string,
+  level: number,
+  tierId?: DungeonTierId,
+): EnemyCombatant {
   const hp = bossHpForLevel(level)
-  // A world may ship its own boss art; one that doesn't borrows an enemy.
-  const boss = bossSlot(world, seed)
+  // A cast world names a boss per tier; anything else borrows from its own
+  // bosses folder, or from its enemies when it has none.
+  const boss = bossSlot(world, seed, tierId)
   return {
     kind: 'boss',
-    name: '보스 수호자',
+    // Named after its art, the way an ordinary foe is. It used to be "보스
+    // 수호자" for every boss in the game, which made the thing at the bottom
+    // of a world anonymous — the one fight that most deserves a name.
+    name: boss ? enemyNameFor(boss.slot) : '보스 수호자',
     image: boss ? { folder: boss.folder, slot: boss.slot } : { folder: 'enemies', slot: '' },
     level,
     maxHp: hp,
