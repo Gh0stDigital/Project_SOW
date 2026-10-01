@@ -16,6 +16,7 @@ import {
   type DungeonTierId,
 } from '@/config/balance'
 import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
+import { reachableWordCount } from '@/systems/spellSetManager'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
 import { RANDOM_SET_ID, pickRandomSet, usableSets } from '@/systems/spellSetManager'
@@ -26,6 +27,7 @@ import { UiIcon } from '@/ui/components/UiIcon'
 
 export function DungeonConfigScreen() {
   const goTo = useUiStore((s) => s.goTo)
+  const goToErrand = useUiStore((s) => s.goToErrand)
   const totems = usePersistentStore((s) => s.totems)
   const activeTotemId = usePersistentStore((s) => s.activeTotemId)
   const spellSets = usePersistentStore((s) => s.spellSets)
@@ -113,6 +115,15 @@ export function DungeonConfigScreen() {
   const world = worlds.find((w) => w.id === worldId) ?? worlds[0] ?? resolveWorld(worldId)
   const worldLocked = !world || !isWorldUnlocked(world.id)
   const tierLocked = !isTierUnlocked(tierId, cleared)
+
+  // Short of words for this tier — the refusal that has a remedy. Covers
+  // both the named-set case and the random one, since neither can start.
+  const tooSmallForTier =
+    (chosenSetTooSmall || (dungeonRandom && randomPool.length === 0)) && !tierLocked && !worldLocked
+  // Two or more sets to tie together, and enough words between them to be
+  // worth the trip. Otherwise the honest answer is more vocabulary, not a
+  // rearrangement of what is there.
+  const canCombine = spellSets.length >= 2 && reachableWordCount(spellSets) >= minWords
 
   const canStart =
     !!totem &&
@@ -437,6 +448,22 @@ export function DungeonConfigScreen() {
                         ? '이 세계는 아직 열리지 않았습니다.'
                         : '두 역할 모두에 비어 있지 않은 주문 세트를 골라야 계속할 수 있습니다.'}
               </p>
+            )}
+            {/* The fix, offered where the problem is found.
+ *
+                Being short of words for a tier is the one refusal on this
+                screen with a remedy that is not on it — and the remedy is
+                two screens away, which is most of the reason it went
+                unused. Combining sets you already study from beats
+                re-importing vocabulary you have already trained. Only shown
+                when there is something to combine. */}
+            {!canStart && tooSmallForTier && canCombine && (
+              <button
+                className="btn btn-ghost btn-block"
+                onClick={() => goToErrand('compendium', 'merge')}
+              >
+                세트 합쳐서 {minWords}개 만들기
+              </button>
             )}
           </div>
         </>

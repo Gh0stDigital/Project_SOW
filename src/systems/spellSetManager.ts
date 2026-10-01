@@ -85,3 +85,66 @@ export function pickRandomSet(
   const from = choices.length > 0 ? choices : usable
   return from[Math.min(from.length - 1, Math.floor(random() * from.length))]
 }
+
+// ---------------------------------------------------------------------------
+// Combining sets
+// ---------------------------------------------------------------------------
+
+/**
+ * The words several sets hold between them, each one once.
+ *
+ * Order follows the sets as they were picked, and within a set the order it
+ * already had, so a merge reads as the parts laid end to end rather than as
+ * a reshuffle. A word in two sets keeps its first position.
+ */
+export function mergedSpellIds(sets: SpellSet[], pickedIds: readonly string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const setId of pickedIds) {
+    const set = sets.find((s) => s.id === setId)
+    if (!set) continue
+    for (const spellId of set.spellIds) {
+      if (seen.has(spellId)) continue
+      seen.add(spellId)
+      out.push(spellId)
+    }
+  }
+  return out
+}
+
+/**
+ * How many distinct words a merge would come to.
+ *
+ * The number worth showing while picking, and the one people are surprised
+ * by: two 25-word sets that overlap do not make 50.
+ */
+export function mergedCount(sets: SpellSet[], pickedIds: readonly string[]): number {
+  return mergedSpellIds(sets, pickedIds).length
+}
+
+/**
+ * A name for the result, made from its parts.
+ *
+ * Joined with "+" up to a point, then counted, because a merge of six sets
+ * named after their topics produces a title nothing can render.
+ */
+export function mergedName(sets: SpellSet[], pickedIds: readonly string[], maxParts = 3): string {
+  const names = pickedIds
+    .map((id) => sets.find((s) => s.id === id)?.name)
+    .filter((name): name is string => !!name)
+  if (names.length === 0) return ''
+  if (names.length <= maxParts) return names.join(' + ')
+  return `${names.slice(0, maxParts).join(' + ')} 외 ${names.length - maxParts}개`
+}
+
+/**
+ * The most words any combination of these sets could reach.
+ *
+ * What the ceiling is, so a screen can tell the difference between "pick
+ * more sets" and "you do not own enough words for this tier, whatever you
+ * pick" — the second being a trip to the word shop rather than a trip
+ * through this screen.
+ */
+export function reachableWordCount(sets: SpellSet[]): number {
+  return mergedCount(sets, sets.map((s) => s.id))
+}

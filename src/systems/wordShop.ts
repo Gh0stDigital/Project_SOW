@@ -245,6 +245,18 @@ export type CompendiumPlace =
   | { at: 'editor'; isNew: boolean; hasHeadword: boolean; hasMeaning: boolean; hasExample: boolean }
   /** At the bench, bundling a set. */
   | { at: 'setEditor'; picked: number; available: number; minimumForDungeon: number; isNew: boolean }
+  /** Tying several bundles into one, to carry a deeper dungeon. */
+  | {
+      at: 'merge'
+      /** How many sets are ticked. */
+      picked: number
+      /** Distinct words those sets hold between them. */
+      total: number
+      /** The most any combination of the player's sets could reach. */
+      reachable: number
+      /** What the deepest tier they have opened asks for. */
+      wanted: number
+    }
 
 /** What the keeper says in whichever part of the Compendium is open. */
 export function keeperSpeech(place: CompendiumPlace): KeeperSpeech {
@@ -259,6 +271,53 @@ export function keeperSpeech(place: CompendiumPlace): KeeperSpeech {
       return deskSpeech(place)
     case 'setEditor':
       return benchSpeech(place)
+    case 'merge':
+      return mergeSpeech(place)
+  }
+}
+
+/**
+ * Tying bundles together.
+ *
+ * The one thing worth saying clearly here is the difference between "pick
+ * another" and "you do not own enough words for this, whatever you pick" —
+ * the second is a trip to the counter, not more ticking, and a player who
+ * cannot tell the two apart will sit here trying combinations that cannot
+ * work.
+ */
+function mergeSpeech(place: Extract<CompendiumPlace, { at: 'merge' }>): KeeperSpeech {
+  if (place.reachable < place.wanted) {
+    return {
+      mood: 'concerned',
+      line: `가진 낱말을 다 합쳐도 ${place.reachable}개입니다.`,
+      hint: `${place.wanted}개짜리 던전에는 모자랍니다 — 낱말을 더 들여오셔야 합니다.`,
+    }
+  }
+  if (place.picked === 0) {
+    return {
+      mood: 'idle',
+      line: '묶음을 골라 주세요. 고른 것들을 하나로 묶어 새 세트로 드립니다.',
+      hint: '이미 익힌 낱말을 쓰시는 것이니, 다시 들여올 필요는 없습니다.',
+    }
+  }
+  if (place.picked === 1) {
+    return {
+      mood: 'reading',
+      line: `${place.total}개. 하나만으로는 묶을 것이 없습니다.`,
+      hint: '둘 이상 고르셔야 합쳐집니다.',
+    }
+  }
+  if (place.total >= place.wanted) {
+    return {
+      mood: 'pleased',
+      line: `${place.total}개 — 충분합니다.`,
+      hint: '같은 낱말이 겹치면 한 번만 셉니다.',
+    }
+  }
+  return {
+    mood: 'reading',
+    line: `${place.total}개. ${place.wanted - place.total}개가 더 필요합니다.`,
+    hint: '같은 낱말이 겹치면 한 번만 세니, 생각보다 적게 모일 수 있습니다.',
   }
 }
 

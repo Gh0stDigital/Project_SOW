@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useUiStore } from '@/state/uiStore'
 import { TopBar } from '@/ui/components/TopBar'
 import { SpellListTab } from './SpellListTab'
@@ -9,7 +9,20 @@ type Tab = 'spells' | 'sets'
 
 export function CompendiumScreen() {
   const goTo = useUiStore((s) => s.goTo)
-  const [tab, setTab] = useState<Tab>('spells')
+  const errand = useUiStore((s) => s.errand)
+  const clearErrand = useUiStore((s) => s.clearErrand)
+  // Opened to do a particular job — see uiStore's CompendiumErrand. Read
+  // once into state and cleared, so leaving the sets tab and coming back
+  // does not drop the player into the same screen again.
+  const [tab, setTab] = useState<Tab>(errand === 'merge' ? 'sets' : 'spells')
+  const [startMerging] = useState(errand === 'merge')
+  // Cleared in an effect rather than during render: writing to a store
+  // mid-render updates another component while this one is rendering, which
+  // React is right to complain about. The two useState calls above have
+  // already captured what the errand was.
+  useEffect(() => {
+    if (errand) clearErrand()
+  }, [errand, clearErrand])
   /**
    * Which full-screen sub-panel the spells tab has opened, if any.
    *
@@ -54,7 +67,11 @@ export function CompendiumScreen() {
       </div>
 
       <div className="screen-body">
-        {tab === 'spells' ? <SpellListTab onSubScreen={setSubScreen} /> : <SpellSetsTab />}
+        {tab === 'spells' ? (
+          <SpellListTab onSubScreen={setSubScreen} />
+        ) : (
+          <SpellSetsTab startMerging={startMerging} />
+        )}
       </div>
     </div>
   )

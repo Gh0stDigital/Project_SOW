@@ -1891,6 +1891,59 @@ select:focus {
   }
 }
 
+/* ---- Combining sets ----------------------------------------------------
+
+   The running total is the screen: you tick bundles until a number is
+   reached, so that number is the largest thing on it and sits above the
+   list rather than under it. */
+
+.merge-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+}
+
+.merge-total-count {
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-gold);
+}
+
+.merge-row {
+  align-items: center;
+  gap: 10px;
+}
+
+/* A gold edge rather than a tickbox control: the whole row is the target,
+   and a real checkbox beside a tappable card invites a miss. */
+.merge-row.picked {
+  border-color: var(--accent-gold);
+}
+
+.merge-check {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-tight);
+  color: var(--accent-gold);
+  font-weight: 700;
+}
+
+.merge-row.picked .merge-check {
+  border-color: var(--accent-gold);
+  background: rgba(242, 193, 78, 0.14);
+}
+
 /* ---- Main-menu Totem banner ---- */
 
 .totem-banner {

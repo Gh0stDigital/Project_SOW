@@ -290,6 +290,23 @@ export function minimumSetSize(tier: DungeonTierDef): number {
   return tier.wordLimit
 }
 
+/**
+ * The deepest tier a set of this size can carry, or null when it cannot
+ * carry any.
+ *
+ * Better than a pass/fail against one number. A 25-word set is not "too
+ * small" — it is a tier-25 set, and telling somebody who has opened tier 50
+ * that their perfectly good tier-25 set is deficient is both discouraging
+ * and untrue.
+ */
+export function deepestTierForSize(wordCount: number): DungeonTierDef | null {
+  let deepest: DungeonTierDef | null = null
+  for (const tier of dungeonTiers) {
+    if (wordCount >= minimumSetSize(tier)) deepest = tier
+  }
+  return deepest
+}
+
 /** The middle of a band — what a Totem should be to belong there. */
 export function recommendedLevel(worldId: string, tierId: DungeonTierId): number {
   const [low, high] = enemyLevelRange(worldId, tierId)
