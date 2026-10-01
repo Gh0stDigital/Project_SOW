@@ -44,6 +44,22 @@ export interface MaterialDef {
   tiers: readonly DungeonTierId[]
   /** Relative weight within its tiers' drop tables. */
   dropWeight: number
+  /**
+   * The worlds this falls in. Absent means every world.
+   *
+   * A world's memory is the obvious case: the Dragon King's Palace yields
+   * a memory of the Dragon King's Palace and nothing else does, which is
+   * what makes a recipe asking for one a reason to go back there rather
+   * than anywhere.
+   */
+  worlds?: readonly string[]
+  /**
+   * The boss art slot that drops this, if only one thing does.
+   *
+   * Such a material is kept out of the ordinary table entirely — it is not
+   * a rare roll, it is the thing that particular guardian leaves behind.
+   */
+  fromBoss?: string
 }
 
 /** One stack in the player's bag. */

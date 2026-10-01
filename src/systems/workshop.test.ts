@@ -84,15 +84,25 @@ describe('what the tiers give up', () => {
     }
   })
 
-  it('never drops a deep material in the shallows', () => {
-    const shallow = materialsForTier('tier10')
-    const deep = materialsForTier('tier50')
-    expect(shallow.some((d) => deep.includes(d))).toBe(false)
+  /**
+   * The selling stock only.
+   *
+   * The crafting line — meteor iron, hanji, ink, the world memories — falls
+   * at every depth on purpose: a recipe asks for *more* of them rather than
+   * for rarer ones, so the difference between a slime and a Ryu is how long
+   * you keep at it, not which tier you can survive. The graded stock below
+   * is what makes a deep run pay better.
+   */
+  const graded = (tier: 'tier10' | 'tier25' | 'tier50') =>
+    materialsForTier(tier).filter((d) => d.tiers.length === 1)
+
+  it('never drops a deep selling material in the shallows', () => {
+    expect(graded('tier10').some((d) => graded('tier50').includes(d))).toBe(false)
   })
 
   it('pays better the deeper the tier', () => {
     const best = (tier: 'tier10' | 'tier25' | 'tier50') =>
-      Math.max(...materialsForTier(tier).map((d) => d.value))
+      Math.max(...graded(tier).map((d) => d.value))
     expect(best('tier25')).toBeGreaterThan(best('tier10'))
     expect(best('tier50')).toBeGreaterThan(best('tier25'))
   })
@@ -111,20 +121,20 @@ describe('what the tiers give up', () => {
   it('walks the weighted table in order', () => {
     const table = materialsForTier('tier10')
     // A roll of 0 lands on the first entry; a roll of almost 1 on the last.
-    expect(rollMaterialDrop('tier10', seq([0]))).toBe(table[0].id)
-    expect(rollMaterialDrop('tier10', seq([0.999999]))).toBe(table[table.length - 1].id)
+    expect(rollMaterialDrop('tier10', undefined, seq([0]))).toBe(table[0].id)
+    expect(rollMaterialDrop('tier10', undefined, seq([0.999999]))).toBe(table[table.length - 1].id)
   })
 
   it('rolls a chance drop only when the chance passes', () => {
     // First number is the chance gate, second picks from the table.
-    expect(rollMaterialChance('tier10', 0.5, seq([0.9, 0]))).toBeNull()
-    expect(rollMaterialChance('tier10', 0.5, seq([0.1, 0]))).not.toBeNull()
+    expect(rollMaterialChance('tier10', 0.5, undefined, seq([0.9, 0]))).toBeNull()
+    expect(rollMaterialChance('tier10', 0.5, undefined, seq([0.1, 0]))).not.toBeNull()
     // A zero chance never drops, whatever the roll.
-    expect(rollMaterialChance('tier10', 0, seq([0]))).toBeNull()
+    expect(rollMaterialChance('tier10', 0, undefined, seq([0]))).toBeNull()
   })
 
   it('gives a boss as many as it was asked for', () => {
-    expect(rollMaterialDrops('tier50', 3, seq([0.1])).length).toBe(3)
+    expect(rollMaterialDrops('tier50', 3, undefined, seq([0.1])).length).toBe(3)
     expect(rollMaterialDrops('tier50', 0)).toEqual([])
   })
 

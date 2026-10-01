@@ -175,6 +175,10 @@ export function ForgeBench() {
                 </div>
               )
             })}
+            {/* Only when there is one to pay. The stated recipes ask for
+                materials and nothing else, and a row reading "fee 0/0 ✓" is
+                a line of the list that says nothing. */}
+            {picked.check.money > 0 && (
             <div className={`recipe-line${picked.check.moneyMet ? ' met' : ''}`}>
               <span className="material-icon" aria-hidden="true">
                 <UiIcon name="money" size={16} />
@@ -189,6 +193,7 @@ export function ForgeBench() {
                 <span className="faint recipe-short">{picked.check.money - picked.check.haveMoney}냥 부족</span>
               )}
             </div>
+            )}
           </div>
 
           {/* Said plainly rather than hidden, because it is true and the

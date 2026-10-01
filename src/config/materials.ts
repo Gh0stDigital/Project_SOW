@@ -141,6 +141,67 @@ const defs: MaterialDef[] = [
     tiers: ['tier50'],
     dropWeight: 3,
   },
+
+  // ---- The crafting line -------------------------------------------------
+  // What a Totem is actually made of. These are not graded by depth the way
+  // the selling stock above is: a recipe asks for more of them rather than
+  // for rarer ones, so they fall at every tier and the difference between a
+  // slime and a Ryu is how long you have to keep at it.
+  {
+    id: 'meteor_iron',
+    name: '운철',
+    icon: '☄️',
+    description: '하늘에서 떨어진 쇠. 토템의 뼈대가 되는 금속입니다.',
+    kind: 'material',
+    value: 26,
+    tiers: ['tier10', 'tier25', 'tier50'],
+    dropWeight: 7,
+  },
+  {
+    id: 'hanji',
+    name: '한지',
+    icon: '📜',
+    description: '닥나무로 뜬 종이. 말을 받아 적어 토템의 몸에 붙입니다.',
+    kind: 'material',
+    value: 18,
+    tiers: ['tier10', 'tier25', 'tier50'],
+    dropWeight: 7,
+  },
+  {
+    id: 'ink',
+    name: '먹',
+    icon: '🖌️',
+    description: '갈아 쓰는 먹. 한지에 적힌 말을 지워지지 않게 합니다.',
+    kind: 'material',
+    value: 14,
+    tiers: ['tier10', 'tier25', 'tier50'],
+    dropWeight: 8,
+  },
+  {
+    id: 'memory_dragon_king_palace',
+    name: '세계의 기억 · 용왕의 던전',
+    icon: '🌀',
+    description: '용궁에서만 건져 올릴 수 있는 기억 한 조각. 그 세계의 토템에는 반드시 들어갑니다.',
+    kind: 'material',
+    value: 60,
+    tiers: ['tier10', 'tier25', 'tier50'],
+    worlds: ['dragon-king-palace'],
+    dropWeight: 5,
+  },
+  {
+    id: 'core_lantern_of_ryu',
+    name: '핵심 기억 · 류의 등불',
+    icon: '🏮',
+    description: '물의 용 류가 꺼뜨리지 않던 등불. 류를 벼리려면 류에게서 받아야 합니다.',
+    kind: 'material',
+    value: 220,
+    tiers: ['tier25'],
+    worlds: ['dragon-king-palace'],
+    // Never in the ordinary table: this is what Ryu leaves behind, and the
+    // only way to get one is to put Ryu down.
+    fromBoss: 'waterDragonRyu',
+    dropWeight: 0,
+  },
 ]
 
 export const materialDefs: Record<MaterialId, MaterialDef> = Object.fromEntries(
@@ -173,8 +234,27 @@ export function getMaterialDef(id: MaterialId): MaterialDef {
   return def
 }
 
-export function materialsForTier(tierId: DungeonTierId): readonly MaterialDef[] {
-  return defs.filter((d) => d.tiers.includes(tierId) && d.dropWeight > 0)
+/**
+ * What can fall at this tier, in this world.
+ *
+ * `worldId` is optional so a caller with no world in hand — a test, a
+ * screen listing the catalogue — still gets a sensible table; passing one
+ * narrows it to what that place actually yields. A material tied to a boss
+ * is never here: it is not a roll.
+ */
+export function materialsForTier(tierId: DungeonTierId, worldId?: string): readonly MaterialDef[] {
+  return defs.filter(
+    (d) =>
+      d.dropWeight > 0 &&
+      !d.fromBoss &&
+      d.tiers.includes(tierId) &&
+      (!d.worlds || !worldId || d.worlds.includes(worldId)),
+  )
+}
+
+/** What this boss leaves behind, beyond the ordinary drops. */
+export function materialsFromBoss(bossSlot: string): readonly MaterialDef[] {
+  return defs.filter((d) => d.fromBoss === bossSlot)
 }
 
 export const materialBalance = {

@@ -19,7 +19,7 @@ import { activeLevelBias } from '@/systems/directionModifiers'
 import { mimicBalance, treasureBalance, trapBalance } from '@/config/dungeonEvents'
 import { getItemDef, itemBalance } from '@/config/items'
 import { getMaterialDef, materialBalance } from '@/config/materials'
-import { rollMaterialChance, rollMaterialDrops } from '@/systems/materials'
+import { bossMaterialDrops, rollMaterialChance, rollMaterialDrops } from '@/systems/materials'
 import { creatureKeyForImage } from '@/systems/creatureTotems'
 import { mimicRevealText } from '@/systems/eventContent'
 import {
@@ -294,8 +294,13 @@ function noteCreatureSeen(worldId: string, enemy: EnemyCombatant) {
  * by: a shallow run pays in river stones wherever it is walked, and the
  * deep runs are where the things recipes ask for live.
  */
-function addMaterialDrop(reward: RewardBundle, tierId: DungeonTierId, chance: number): RewardBundle {
-  const dropped = rollMaterialChance(tierId, chance)
+function addMaterialDrop(
+  reward: RewardBundle,
+  tierId: DungeonTierId,
+  worldId: string,
+  chance: number,
+): RewardBundle {
+  const dropped = rollMaterialChance(tierId, chance, worldId)
   if (!dropped) return reward
   const def = getMaterialDef(dropped)
   return {
@@ -306,9 +311,14 @@ function addMaterialDrop(reward: RewardBundle, tierId: DungeonTierId, chance: nu
 }
 
 /** Several independent material rolls — what a boss leaves behind. */
-function addMaterialDrops(reward: RewardBundle, tierId: DungeonTierId, count: number): RewardBundle {
+function addMaterialDrops(
+  reward: RewardBundle,
+  tierId: DungeonTierId,
+  worldId: string,
+  count: number,
+): RewardBundle {
   let next = reward
-  for (const id of rollMaterialDrops(tierId, count)) {
+  for (const id of rollMaterialDrops(tierId, count, worldId)) {
     const def = getMaterialDef(id)
     next = {
       ...next,
@@ -632,7 +642,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
       lines: [`💰 ${treasureBalance.magicRoomMoney}`, `✨ 토템 경험치 ${treasureBalance.magicRoomTotemXp}`],
     }
     reward = addItemDrop(reward, treasureBalance.magicRoomItemChance)
-    reward = addMaterialDrop(reward, run.config.tierId, materialBalance.magicRoomDropChance)
+    reward = addMaterialDrop(reward, run.config.tierId, run.config.worldId, materialBalance.magicRoomDropChance)
     creditReward(run.config.totemId, reward)
 
     set({
@@ -842,7 +852,18 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
         lines: [`💰 ${rewardBalance.bossMoneyReward}`, `✨ 토템 경험치 ${bossXp}`],
       }
       for (let i = 0; i < itemBalance.bossDropCount; i++) reward = addItemDrop(reward, 1)
-      reward = addMaterialDrops(reward, run.config.tierId, materialBalance.bossDropCount)
+      reward = addMaterialDrops(reward, run.config.tierId, run.config.worldId, materialBalance.bossDropCount)
+      // And whatever is this guardian's alone. Guaranteed, not rolled: a
+      // core memory is the reason that fight exists for anyone building
+      // its Totem.
+      for (const id of bossMaterialDrops(battle.enemy.image.slot)) {
+        const def = getMaterialDef(id)
+        reward = {
+          ...reward,
+          materialIds: [...reward.materialIds, id],
+          lines: [...reward.lines, `${def.icon} ${def.name}`],
+        }
+      }
       creditReward(totemId, reward)
       // Beating the boss is what opens the next tier, and this is the one
       // place a boss is recorded as beaten, so it is the one place the clear
@@ -884,6 +905,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
     reward = addMaterialDrop(
       reward,
       run.config.tierId,
+      run.config.worldId,
       wasMimic ? materialBalance.mimicDropChance : materialBalance.enemyDropChance,
     )
     if (wasMimic && Math.random() < mimicBalance.exclusiveDropChance) {
@@ -1092,7 +1114,7 @@ function resolveTreasure(set: SetFn, run: DungeonRunState, correct: boolean) {
     lines: [`💰 ${treasureBalance.baseMoney}`],
   }
   reward = addItemDrop(reward, treasureBalance.itemDropChance)
-  reward = addMaterialDrop(reward, run.config.tierId, materialBalance.treasureDropChance)
+  reward = addMaterialDrop(reward, run.config.tierId, run.config.worldId, materialBalance.treasureDropChance)
   creditReward(run.config.totemId, reward)
 
   set({

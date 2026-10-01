@@ -8,7 +8,7 @@
 
 import type { MaterialDef, MaterialEntry, MaterialId } from '@/domain/material'
 import type { DungeonTierId } from '@/config/balance'
-import { findMaterialDef, materialsForTier } from '@/config/materials'
+import { findMaterialDef, materialsForTier, materialsFromBoss } from '@/config/materials'
 
 export function addMaterial(bag: MaterialEntry[], materialId: MaterialId, quantity = 1): MaterialEntry[] {
   if (quantity <= 0) return bag
@@ -71,8 +71,12 @@ export function bagValue(bag: readonly MaterialEntry[]): number {
  * Weighted pick from one tier's table. Null when that tier drops nothing,
  * which a tier with no materials assigned to it legitimately does.
  */
-export function rollMaterialDrop(tierId: DungeonTierId, rng: () => number = Math.random): MaterialId | null {
-  const table = materialsForTier(tierId)
+export function rollMaterialDrop(
+  tierId: DungeonTierId,
+  worldId?: string,
+  rng: () => number = Math.random,
+): MaterialId | null {
+  const table = materialsForTier(tierId, worldId)
   const total = table.reduce((sum, d) => sum + d.dropWeight, 0)
   if (total <= 0) return null
   let roll = rng() * total
@@ -87,11 +91,12 @@ export function rollMaterialDrop(tierId: DungeonTierId, rng: () => number = Math
 export function rollMaterialDrops(
   tierId: DungeonTierId,
   count: number,
+  worldId?: string,
   rng: () => number = Math.random,
 ): MaterialId[] {
   const out: MaterialId[] = []
   for (let i = 0; i < count; i++) {
-    const id = rollMaterialDrop(tierId, rng)
+    const id = rollMaterialDrop(tierId, worldId, rng)
     if (id) out.push(id)
   }
   return out
@@ -101,8 +106,20 @@ export function rollMaterialDrops(
 export function rollMaterialChance(
   tierId: DungeonTierId,
   chance: number,
+  worldId?: string,
   rng: () => number = Math.random,
 ): MaterialId | null {
   if (rng() >= chance) return null
-  return rollMaterialDrop(tierId, rng)
+  return rollMaterialDrop(tierId, worldId, rng)
+}
+
+/**
+ * What a boss hands over on top of its ordinary drops.
+ *
+ * Guaranteed rather than rolled. A core memory is the reason that fight
+ * exists for anyone building its Totem, and "beat Ryu and maybe get the
+ * lantern" is a different, worse game than "beat Ryu and get the lantern".
+ */
+export function bossMaterialDrops(bossSlot: string): MaterialId[] {
+  return materialsFromBoss(bossSlot).map((d) => d.id)
 }

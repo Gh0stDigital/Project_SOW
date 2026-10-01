@@ -48,10 +48,61 @@ function normalizeKey(key: string): string {
 }
 
 /**
- * Recipes somebody has actually decided on. Empty entries are the point:
- * this is the table to fill in, and everything not in it is guessed.
+ * Recipes somebody has actually decided on.
+ *
+ * Everything not in here is still guessed, and says so on its own sheet.
+ * The four creatures of the Dragon King's Palace are stated: a shared spine
+ * of meteor iron, hanji and ink in rising amounts, a memory of the world
+ * they came from, and — for Ryu alone — the lantern he carries, which only
+ * he drops.
+ *
+ * No smith's fee on these. The requirements given were materials and
+ * nothing else, so that is what they cost; the guessed recipes still carry
+ * one.
  */
-const authored: Record<string, ForgeRecipe> = {}
+const authored: Record<string, ForgeRecipe> = {
+  slime: {
+    ingredients: [
+      { materialId: 'meteor_iron', quantity: 1 },
+      { materialId: 'hanji', quantity: 1 },
+      { materialId: 'ink', quantity: 2 },
+      { materialId: 'memory_dragon_king_palace', quantity: 1 },
+    ],
+    money: 0,
+    provisional: false,
+  },
+  dragonwarriorwarden: {
+    ingredients: [
+      { materialId: 'meteor_iron', quantity: 2 },
+      { materialId: 'hanji', quantity: 1 },
+      { materialId: 'ink', quantity: 2 },
+      { materialId: 'memory_dragon_king_palace', quantity: 2 },
+    ],
+    money: 0,
+    provisional: false,
+  },
+  minotaur: {
+    ingredients: [
+      { materialId: 'meteor_iron', quantity: 3 },
+      { materialId: 'hanji', quantity: 1 },
+      { materialId: 'ink', quantity: 2 },
+      { materialId: 'memory_dragon_king_palace', quantity: 2 },
+    ],
+    money: 0,
+    provisional: false,
+  },
+  waterdragonryu: {
+    ingredients: [
+      { materialId: 'meteor_iron', quantity: 5 },
+      { materialId: 'hanji', quantity: 2 },
+      { materialId: 'ink', quantity: 4 },
+      { materialId: 'memory_dragon_king_palace', quantity: 2 },
+      { materialId: 'core_lantern_of_ryu', quantity: 1 },
+    ],
+    money: 0,
+    provisional: false,
+  },
+}
 
 /** The three grades a portrait can be guessed into, deepest last. */
 const GRADES: readonly (readonly MaterialId[])[] = [
@@ -169,7 +220,14 @@ export function creatureRecipe(slotKey: string, startingLevel: number): ForgeRec
   // folder's fallback — which would have given every creature in the game
   // the same recipe as one portrait.
   const flat = flatten(slotKey)
-  const base = authored[flat] ?? recipeAtGrade(flat, gradeForLevel(startingLevel))
+  // An authored recipe is the price, full stop. The level multiplier exists
+  // to make a guess scale with what it is buying; multiplying numbers
+  // somebody chose would mean the sheet showed something other than what
+  // was written down.
+  const authoredRecipe = authored[flat]
+  if (authoredRecipe) return authoredRecipe
+
+  const base = recipeAtGrade(flat, gradeForLevel(startingLevel))
   const mult = creatureMultiplier(startingLevel)
   return {
     ingredients: base.ingredients.map((i) => ({
