@@ -71,7 +71,10 @@ const authored: Record<string, ForgeRecipe> = {
     money: 0,
     provisional: false,
   },
-  dragonwarriorwarden: {
+  // The palace guard. Keyed by the art it is drawn with; the levels table in
+  // config/creatures.ts carries the older spellings for saves that met it
+  // under another name.
+  dragonguard: {
     ingredients: [
       { materialId: 'meteor_iron', quantity: 2 },
       { materialId: 'hanji', quantity: 1 },

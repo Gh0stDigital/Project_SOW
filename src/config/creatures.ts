@@ -26,15 +26,31 @@ function normalize(slot: string): string {
 
 const STARTING_LEVELS: Record<string, number> = {
   slime: 10,
-  // "Dragon warrior" — the warden that stands at the bottom of the Dragon
-  // King's Palace. Both spellings resolve here so renaming the file does
-  // not silently reset it to a guess.
+  // "Dragon warrior" — the palace guard. It has been a boss and an
+  // underling and has been spelled three ways; every spelling resolves
+  // here, so moving the file or renaming it does not silently reset a
+  // decided level back to a guess.
+  dragonguard: 25,
   dragonwarriorwarden: 25,
   dragonwarrior: 25,
   warden: 25,
   minotaur: 35,
   waterdragonryu: 50,
   ryu: 50,
+}
+
+/**
+ * Creatures that are never a Totem, however many times you meet them.
+ *
+ * Not everything you fight is a character you could be. The Dragon King's
+ * Spirit is an afterimage of a power rather than a thing with a body — the
+ * blacksmith has nothing to strike it from — so it stays a fight and never
+ * joins the roster, no matter how often the bottom of that world is cleared.
+ */
+const NEVER_FORGEABLE = new Set(['dragonkingspirit'])
+
+export function isForgeableCreature(slot: string): boolean {
+  return !NEVER_FORGEABLE.has(normalize(slot))
 }
 
 /** Which tier's midpoint an unlisted creature is guessed from. */

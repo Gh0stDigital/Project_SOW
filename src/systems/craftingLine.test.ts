@@ -35,7 +35,7 @@ describe('the four stated recipes', () => {
   })
 
   it('builds a dragon warrior', () => {
-    expect(asList('dragonWarriorWarden', 25)).toEqual({
+    expect(asList('DragonGuard', 25)).toEqual({
       meteor_iron: 2,
       hanji: 1,
       red_ink: 2,
@@ -71,13 +71,13 @@ describe('the four stated recipes', () => {
   })
 
   it('charges no smith\'s fee, because none was asked for', () => {
-    for (const slot of ['slime', 'dragonWarriorWarden', 'minotaur', 'waterDragonRyu']) {
+    for (const slot of ['slime', 'DragonGuard', 'minotaur', 'waterDragonRyu']) {
       expect(creatureRecipe(slot, 10).money).toBe(0)
     }
   })
 
   it('stops calling them provisional', () => {
-    for (const slot of ['slime', 'dragonWarriorWarden', 'minotaur', 'waterDragonRyu']) {
+    for (const slot of ['slime', 'DragonGuard', 'minotaur', 'waterDragonRyu']) {
       expect(creatureRecipe(slot, 10).provisional).toBe(false)
     }
   })
@@ -90,7 +90,7 @@ describe('the four stated recipes', () => {
   })
 
   it('only ever names materials that exist', () => {
-    for (const slot of ['slime', 'dragonWarriorWarden', 'minotaur', 'waterDragonRyu']) {
+    for (const slot of ['slime', 'DragonGuard', 'minotaur', 'waterDragonRyu']) {
       for (const i of creatureRecipe(slot, 10).ingredients) {
         expect(findMaterialDef(i.materialId)).toBeDefined()
         expect(i.quantity).toBeGreaterThan(0)
@@ -101,8 +101,8 @@ describe('the four stated recipes', () => {
   it('asks more of the deeper creature', () => {
     const total = (slot: string) =>
       creatureRecipe(slot, 10).ingredients.reduce((sum, i) => sum + i.quantity, 0)
-    expect(total('slime')).toBeLessThan(total('dragonWarriorWarden'))
-    expect(total('dragonWarriorWarden')).toBeLessThan(total('minotaur'))
+    expect(total('slime')).toBeLessThan(total('DragonGuard'))
+    expect(total('DragonGuard')).toBeLessThan(total('minotaur'))
     expect(total('minotaur')).toBeLessThan(total('waterDragonRyu'))
   })
 })
@@ -166,7 +166,7 @@ describe("a core memory comes from the thing that carries it", () => {
   })
 
   it('comes from nobody else', () => {
-    for (const slot of ['minotaur', 'dragonWarriorWarden', 'slime', 'goblin']) {
+    for (const slot of ['minotaur', 'DragonGuard', 'slime', 'goblin']) {
       expect(bossMaterialDrops(slot)).toEqual([])
     }
   })
@@ -216,7 +216,7 @@ describe('the catalogue stays coherent', () => {
 describe('the crafting line has its art', () => {
   it('ships a picture for every material a stated recipe asks for', () => {
     const asked = new Set(
-      ['slime', 'dragonWarriorWarden', 'minotaur', 'waterDragonRyu'].flatMap((slot) =>
+      ['slime', 'DragonGuard', 'minotaur', 'waterDragonRyu'].flatMap((slot) =>
         creatureRecipe(slot, 10).ingredients.map((i) => i.materialId),
       ),
     )

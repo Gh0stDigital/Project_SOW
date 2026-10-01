@@ -24,7 +24,10 @@ const WORLD_TIER_BOSSES: Record<string, Partial<Record<DungeonTierId, string>>> 
   'dragon-king-palace': {
     tier10: 'minotaur',
     tier25: 'waterDragonRyu',
-    tier50: 'dragonWarriorWarden',
+    // Not the Dragon King. What is left of him in the deepest room — an
+    // afterimage of the power, which is quite enough to be the end of the
+    // world's hardest run.
+    tier50: 'DragonKingSpirit',
   },
 }
 

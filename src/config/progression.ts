@@ -18,7 +18,7 @@
 
 import { dungeonTiers, type DungeonTierId } from './balance'
 import { hasAsset, resolvedKey } from './assets'
-import { creatureExists, isCreatureKey } from '@/systems/creatureTotems'
+import { creatureExists, isCreatureForgeable, isCreatureKey } from '@/systems/creatureTotems'
 
 // ---------------------------------------------------------------------------
 // Totems
@@ -58,7 +58,11 @@ export function isTotemUnlocked(avatarKey: string, forged: readonly string[] = [
   // portrait resolution below would answer for the wrong thing entirely.
   // An exact match against what this save has forged is the whole rule.
   if (isCreatureKey(avatarKey)) {
-    return creatureExists(avatarKey) && forged.includes(avatarKey)
+    // Forgeable as well as forged. A creature nobody can strike must not
+    // become wearable through a save that somehow names it — which is also
+    // what keeps a design removed from the roster from coming back through
+    // an old save file.
+    return creatureExists(avatarKey) && isCreatureForgeable(avatarKey) && forged.includes(avatarKey)
   }
   if (!hasAsset('totems', avatarKey)) return false
   const asked = resolvedKey('totems', avatarKey)

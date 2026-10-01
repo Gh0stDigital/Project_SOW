@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CREATURE_PREFIX,
   creatureExists,
+  isCreatureForgeable,
   creatureKey,
   creatureKeyForImage,
   creatureName,
@@ -39,7 +40,7 @@ describe('a world fields a boss per tier', () => {
   it('casts all three depths of the Dragon King\'s Palace', () => {
     expect(bossSlotFor(DKP, 'tier10')).toBe('minotaur')
     expect(bossSlotFor(DKP, 'tier25')).toBe('waterDragonRyu')
-    expect(bossSlotFor(DKP, 'tier50')).toBe('dragonWarriorWarden')
+    expect(bossSlotFor(DKP, 'tier50')).toBe('DragonKingSpirit')
   })
 
   it('ships the art for every boss it casts', () => {
@@ -112,9 +113,11 @@ describe('the creature key', () => {
     expect(creatureExists(creatureKey({ worldId: DKP, folder: 'enemies', slot: 'slime' }))).toBe(true)
     expect(creatureExists(creatureKey({ worldId: DKP, folder: 'enemies', slot: 'nothing' }))).toBe(false)
     expect(creatureExists(creatureKey({ worldId: 'no-such-world', folder: 'enemies', slot: 'slime' }))).toBe(false)
-    // The warden moved to the bosses folder; its old address is dead.
+    // The palace guard has been a boss and an underling under three names.
+    // Only the address it is actually drawn at answers.
     expect(creatureExists(creatureKey({ worldId: DKP, folder: 'enemies', slot: 'warden' }))).toBe(false)
-    expect(creatureExists(creatureKey({ worldId: DKP, folder: 'bosses', slot: 'dragonWarriorWarden' }))).toBe(true)
+    expect(creatureExists(creatureKey({ worldId: DKP, folder: 'bosses', slot: 'dragonWarriorWarden' }))).toBe(false)
+    expect(creatureExists(creatureKey({ worldId: DKP, folder: 'enemies', slot: 'DragonGuard' }))).toBe(true)
   })
 
   it('reads a name off the slot', () => {
@@ -132,7 +135,7 @@ describe('what a creature is worth', () => {
 
   it('starts the four that were named where they were told to', () => {
     expect(lv('enemies', 'slime')).toBe(10)
-    expect(lv('bosses', 'dragonWarriorWarden')).toBe(25)
+    expect(lv('enemies', 'DragonGuard')).toBe(25)
     expect(lv('bosses', 'minotaur')).toBe(35)
     expect(lv('bosses', 'waterDragonRyu')).toBe(50)
   })
@@ -307,7 +310,7 @@ describe('the setup screen shows the boss you will actually meet', () => {
     const expected: Record<string, string> = {
       tier10: 'minotaur',
       tier25: 'waterDragonRyu',
-      tier50: 'dragonWarriorWarden',
+      tier50: 'DragonKingSpirit',
     }
     for (const tier of dungeonTiers) {
       const preview = bossPreview(world, tier.id)!
@@ -360,5 +363,49 @@ describe('the setup screen shows the boss you will actually meet', () => {
     const preview = bossPreview(world, 'tier50')!
     const key = creatureKey({ worldId: DKP, folder: preview.folder, slot: preview.slot })
     expect(isTotemUnlocked(key, [])).toBe(false)
+  })
+})
+
+describe('not everything you fight is somebody you could be', () => {
+  const spirit = creatureKey({ worldId: DKP, folder: 'bosses', slot: 'DragonKingSpirit' })
+  const guard = creatureKey({ worldId: DKP, folder: 'enemies', slot: 'DragonGuard' })
+
+  it('stands at the bottom of the Dragon King\'s Palace', () => {
+    expect(bossSlotFor(DKP, 'tier50')).toBe('DragonKingSpirit')
+    expect(creatureExists(spirit)).toBe(true)
+    expect(spawnBoss(world, 'seed', 100, 'tier50').image).toEqual({
+      folder: 'bosses',
+      slot: 'DragonKingSpirit',
+    })
+  })
+
+  it('never joins the blacksmith\'s roster, however often it is met', () => {
+    expect(isCreatureForgeable(spirit)).toBe(false)
+    expect(creatureRoster([spirit])).toEqual([])
+    expect(creatureRoster([spirit, spirit, spirit, guard])).toEqual([guard])
+  })
+
+  it('cannot be worn even by a save that names it as forged', () => {
+    // The roster is a screen; this is the rule. A design nobody can strike
+    // must not become wearable through an old or hand-edited save.
+    expect(isTotemUnlocked(spirit, [spirit])).toBe(false)
+  })
+
+  it('leaves every other creature forgeable', () => {
+    for (const [folder, slot] of [
+      ['enemies', 'slime'],
+      ['enemies', 'goblin'],
+      ['enemies', 'DragonGuard'],
+      ['bosses', 'minotaur'],
+      ['bosses', 'waterDragonRyu'],
+    ] as const) {
+      expect(isCreatureForgeable(creatureKey({ worldId: DKP, folder, slot }))).toBe(true)
+    }
+  })
+
+  it('is still recorded as met, so the bestiary is honest about it', () => {
+    // Meeting it is a fact; being able to wear it is a separate question,
+    // and conflating them would mean the sighting never happened.
+    expect(creatureKeyForImage(DKP, { folder: 'bosses', slot: 'DragonKingSpirit' })).toBe(spirit)
   })
 })

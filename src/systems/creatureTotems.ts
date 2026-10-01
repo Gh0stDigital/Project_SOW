@@ -18,7 +18,7 @@
 
 import type { WorldFolder } from './worldRegistry'
 import { findWorld, nameFromSlot, worldAsset } from './worldRegistry'
-import { startingLevelFor, type CreatureLevel } from '@/config/creatures'
+import { isForgeableCreature, startingLevelFor, type CreatureLevel } from '@/config/creatures'
 
 export const CREATURE_PREFIX = 'creature:'
 
@@ -83,6 +83,18 @@ export function creatureWorldName(key: string): string {
   return (ref && findWorld(ref.worldId)?.name) ?? ''
 }
 
+/**
+ * Whether the blacksmith could ever strike this one.
+ *
+ * Some things you fight are not characters you could be — see
+ * config/creatures.ts. Checked here rather than only in the workshop so it
+ * holds wherever a creature key is handed around.
+ */
+export function isCreatureForgeable(key: string | null | undefined): boolean {
+  const ref = parseCreatureKey(key)
+  return !!ref && isForgeableCreature(ref.slot)
+}
+
 /** The level a Totem forged from this creature starts at. */
 export function creatureStartingLevel(key: string): CreatureLevel {
   const ref = parseCreatureKey(key)
@@ -100,7 +112,7 @@ export function creatureStartingLevel(key: string): CreatureLevel {
  */
 export function creatureRoster(seen: readonly string[]): string[] {
   return [...new Set(seen)]
-    .filter(creatureExists)
+    .filter((key) => creatureExists(key) && isCreatureForgeable(key))
     .sort((a, b) => {
       const byLevel = creatureStartingLevel(b).level - creatureStartingLevel(a).level
       return byLevel !== 0 ? byLevel : creatureName(a).localeCompare(creatureName(b))
