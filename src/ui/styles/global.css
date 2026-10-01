@@ -2231,10 +2231,10 @@ select:focus {
 .menu-title-art {
   /* Sized by width: the art is trimmed to its ink and lands about 1.8:1, so
      width is what decides how big the calligraphy reads. */
-  width: min(74%, 312px);
+  width: min(67%, 282px);
   max-width: 100%;
   height: auto;
-  max-height: 22dvh;
+  max-height: 20dvh;
   object-fit: contain;
   aspect-ratio: auto;
   border: 0;
