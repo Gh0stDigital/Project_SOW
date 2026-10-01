@@ -1624,6 +1624,15 @@ select:focus {
   font-size: 11px;
 }
 
+/* On a short screen the footer reassurance is the first thing that can go —
+   it says the game is offline and saves locally, which is worth reading once
+   and never worth crowding the destinations out. */
+@media (max-height: 740px) {
+  .menu-foot {
+    display: none;
+  }
+}
+
 /* ---- Main-menu Totem banner ---- */
 
 .totem-banner {
@@ -2224,7 +2233,11 @@ select:focus {
   justify-content: center;
   align-items: center;
   width: fit-content;
-  padding: 2px 0 0;
+  /* Cleared past the corner controls. The art is trimmed to its ink and
+     centred, so at phone widths its top-right stroke runs under the pills —
+     which have their own background and would simply cover it. Starting
+     below them is cheaper than shrinking the calligraphy again. */
+  padding: 28px 0 0;
   margin: 0 auto;
 }
 
@@ -2247,29 +2260,51 @@ select:focus {
 /* ---- Sound controls ----------------------------------------------------- */
 
 /* Sits in the corner, out of the flow, so it costs the menu no height. */
-.menu-sound-button {
+/* The app-level controls, pinned to the corner rather than laid out in the
+   column. Absolute so nothing added to the menu below can move them: the
+   title exit used to sit under a flexible spacer at the foot, which meant
+   every new destination pushed it down, and on a short phone it fell off a
+   screen that does not scroll. */
+.menu-corner {
   position: absolute;
   top: max(10px, env(safe-area-inset-top));
   right: 14px;
   z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.menu-corner-btn {
   appearance: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
   height: 34px;
-  padding: 0;
-  font-size: 15px;
+  padding: 0 11px;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.04em;
   line-height: 1;
   cursor: pointer;
   background: rgba(46, 31, 19, 0.82);
   border: 1px solid var(--border-soft);
   border-radius: 999px;
   color: var(--text-secondary);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
 
-.menu-sound-button:active {
+/* The round one. A square tap target for a single glyph, where the other is
+   a pill around a word. */
+.menu-corner-btn.icon {
+  width: 34px;
+  padding: 0;
+  font-size: 15px;
+}
+
+.menu-corner-btn:active {
   border-color: var(--accent-cyan-dim);
+  color: var(--text-primary);
 }
 
 
@@ -5882,34 +5917,6 @@ button.totem-hero-frame {
 @keyframes title-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.38; }
-}
-
-/* The way back out of the game. Deliberately plain: it sits under four
-   painted menu rows and should not compete with them, but it is a real
-   button rather than a link so it gets the same tap target as everything
-   else on a phone. */
-.menu-exit {
-  appearance: none;
-  align-self: center;
-  margin: 2px 0 8px;
-  padding: 10px 18px;
-  min-height: 44px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: 12.5px;
-  letter-spacing: 0.06em;
-  color: var(--text-faint);
-  background: transparent;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-tight);
-  transition: color 0.15s ease, border-color 0.15s ease;
-}
-
-.menu-exit:hover,
-.menu-exit:focus-visible {
-  outline: none;
-  color: var(--text-secondary);
-  border-color: var(--accent-gold-dim);
 }
 
 /* ---- New game / load game ----------------------------------------------

@@ -40,19 +40,30 @@ export function MainMenuScreen() {
 
   return (
     <div className="screen">
-      {/* A corner toggle rather than a row of sliders: the controls are worth
-          reaching occasionally and not worth the height they cost on every
-          visit — carrying them cost the menu its whole fold on a short
-          phone. */}
-      <button
-        className="menu-sound-button"
-        data-sfx="none"
-        onClick={() => setSoundOpen(true)}
-        title="소리 설정"
-        aria-label="소리 설정"
-      >
-        {muted ? '🔇' : '🔊'}
-      </button>
+      {/* The two controls that are about the app rather than about the game,
+          kept in the corner and out of the column.
+
+          The sound panel was put here first, for the reason it still is: a
+          row of sliders is worth reaching occasionally and not worth the
+          height it costs on every visit. Leaving the title exit at the foot
+          of the column had the same problem in the end — it sat below a
+          flexible spacer, so every destination added to the menu pushed it
+          further down, and on a short phone it went off the bottom of a
+          screen that cannot scroll. Up here nothing can push it anywhere. */}
+      <div className="menu-corner">
+        <button className="menu-corner-btn" data-sfx="cancel" onClick={returnToTitle} title="타이틀 화면으로">
+          ← 타이틀
+        </button>
+        <button
+          className="menu-corner-btn icon"
+          data-sfx="none"
+          onClick={() => setSoundOpen(true)}
+          title="소리 설정"
+          aria-label="소리 설정"
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
+      </div>
 
       {soundOpen && (
         <SlidePanel title="소리" onClose={() => setSoundOpen(false)}>
@@ -139,13 +150,8 @@ export function MainMenuScreen() {
       </div>
 
       <div style={{ flex: 1 }} />
-      {/* Quieter than the four destinations above it: going back to the
-          title is a way out of the game, not a fifth place to visit. */}
-      <button className="menu-exit" onClick={returnToTitle} data-sfx="cancel">
-        타이틀 화면으로
-      </button>
 
-      <p className="faint" style={{ textAlign: 'center' }}>
+      <p className="faint menu-foot" style={{ textAlign: 'center' }}>
         완전 오프라인 · 진행 상황은 이 기기에 저장됩니다
       </p>
     </div>
