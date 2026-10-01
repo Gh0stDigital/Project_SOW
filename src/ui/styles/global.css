@@ -867,6 +867,10 @@ select:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
+  /* Clear of the row of settings below. The screen's own 10px gap is right
+     for two buttons side by side and too close for a pair of panels this
+     size — they read as resting on the buttons rather than above them. */
+  margin-bottom: 10px;
 }
 
 /* Both panels are told to fill their column, so a short one does not leave
@@ -909,19 +913,32 @@ select:focus {
 }
 
 /* Matched to .boss-panel-art, so the two characters are drawn at one size
-   and neither looks like the more important of the two. */
+   and neither looks like the more important of the two.
+ *
+   Generous inside the panel: the window is the thing worth looking at on
+   this screen, and the panel around it is only a frame for it. What was
+   tight was the room *outside* the panels, not the picture in them. */
 .setup-pair .avatar-frame {
-  --avatar-h: 86px;
+  --avatar-h: 108px;
 }
 
-/* Stacked rather than side by side only on a genuinely narrow screen. At
-   360px each column is still 162px, which holds the 112px window and a
-   truncated name; below that the portrait itself stops fitting. Stacking
-   costs the screen a whole panel's height, so it is the last resort rather
-   than the first. */
+/* The windows are wider than a narrow column can hold at full size, so they
+   come down with it rather than overflowing. Below 330px the pair stacks
+   instead: a single column has the width for the whole window again. */
+@media (max-width: 400px) {
+  .setup-pair .avatar-frame,
+  .setup-pair .boss-panel-art {
+    --avatar-h: 96px;
+  }
+}
+
 @media (max-width: 330px) {
   .setup-pair {
     grid-template-columns: 1fr;
+  }
+  .setup-pair .avatar-frame,
+  .setup-pair .boss-panel-art {
+    --avatar-h: 108px;
   }
 }
 
@@ -984,7 +1001,7 @@ select:focus {
    shapes and the character fills the height in both. Only the colour
    differs. */
 .boss-panel-art {
-  --avatar-h: 86px;
+  --avatar-h: 108px;
   flex: 0 0 auto;
   display: flex;
   align-items: center;
