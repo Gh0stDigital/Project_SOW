@@ -4,7 +4,6 @@ import type { TimerState } from '@/domain/battle'
 import { Bar } from '@/ui/components/Bar'
 import { ExampleSentence } from '@/ui/components/ExampleSentence'
 import type { Spell } from '@/domain/spell'
-import { usePersistentStore } from '@/state/persistentStore'
 import { battleBalance } from '@/config/balance'
 import { buildTileChallenge, assembledText, type AnswerTile } from '@/systems/tileAssembly'
 
@@ -58,18 +57,14 @@ export function ChallengeView({
 }: ChallengeViewProps) {
   const asksForKorean = challenge.direction === 'eng_to_kor'
   const kind = asksForKorean ? 'korean' : 'english'
-  // Only affects the English direction; Korean is syllables either way.
-  const mode = usePersistentStore((s) => s.settings.englishAnswerMode)
-
   // Rebuilt only when the challenge changes — not on every timer tick,
   // which would reshuffle the tiles under the player's finger.
   const board = useMemo(
-    () => buildTileChallenge(answer, kind, decoyPool, Math.random, mode),
-    // Rebuilt when the prompt changes, or when the answer mode is switched
-    // between runs — not on every render, which would reshuffle the tiles
-    // under the player's finger.
+    () => buildTileChallenge(answer, kind, decoyPool, Math.random),
+    // Rebuilt when the prompt changes — not on every render, which would
+    // reshuffle the tiles under the player's finger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [challenge.id, mode],
+    [challenge.id],
   )
 
   const [picked, setPicked] = useState<AnswerTile[]>([])

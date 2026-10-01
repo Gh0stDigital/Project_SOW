@@ -12,10 +12,15 @@
  */
 
 import type { AnswerKind } from './answerChecker'
-import type { EnglishAnswerMode } from '@/domain/settings'
 import { tileBalance } from '@/config/balance'
 
 /** How an answer is cut into tappable pieces. */
+/**
+ * `word` and `letter` were the spelling mode's cuts. That mode is gone, so
+ * nothing produces them any more — but segmentAnswer still handles them,
+ * because they are the obvious shapes for a future one and the branches
+ * cost nothing.
+ */
 export type TileGranularity = 'syllable' | 'word' | 'letter' | 'whole'
 
 export interface AnswerTile {
@@ -37,21 +42,17 @@ export interface TileChallenge {
 /**
  * Chooses how to cut an answer into tiles.
  *
- * Korean is always one tile per Hangul syllable block: assembling the word
- * is the production practice, so it is not something the mode below turns
- * off. English depends on the mode:
- * - `choice`: the whole answer is a single tile ("thank you" stays intact),
- *   sitting among other complete answers. Recall without spelling.
- * - `spell`: multi-word answers split per word, single words per letter.
+ * Korean is one tile per Hangul syllable block: assembling the word is the
+ * production practice, and that is the point of the Korean direction.
+ *
+ * English is the whole answer as a single tile ("thank you" stays intact),
+ * sitting among other complete answers — recall without spelling. There was
+ * a second English mode that cut the answer into letters, chosen from a
+ * setting on the dungeon screen; it is gone, along with the setting. The
+ * game asks whether you know the word, not whether you can type it.
  */
-export function granularityFor(
-  answer: string,
-  kind: AnswerKind,
-  mode: EnglishAnswerMode = 'choice',
-): TileGranularity {
-  if (kind === 'korean') return 'syllable'
-  if (mode === 'choice') return 'whole'
-  return answer.trim().includes(' ') ? 'word' : 'letter'
+export function granularityFor(kind: AnswerKind): TileGranularity {
+  return kind === 'korean' ? 'syllable' : 'whole'
 }
 
 export function segmentAnswer(answer: string, granularity: TileGranularity): string[] {
@@ -94,9 +95,8 @@ export function buildTileChallenge(
   kind: AnswerKind,
   decoySources: string[],
   rng: () => number = Math.random,
-  mode: EnglishAnswerMode = 'choice',
 ): TileChallenge {
-  const granularity = granularityFor(answer, kind, mode)
+  const granularity = granularityFor(kind)
   const answerSegments = segmentAnswer(answer, granularity)
 
   // Candidate decoys: segments from other answers that the correct answer

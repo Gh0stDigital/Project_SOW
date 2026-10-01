@@ -782,6 +782,31 @@ select:focus {
   letter-spacing: 0.04em;
 }
 
+/* The tier's name, captioned along the bottom of the scene rather than
+   headed above it. A dark strip behind it, because the art underneath is a
+   lit temple entrance and white text on it alone is unreadable. */
+.scene-window .scene-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 12px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+  color: var(--text-primary);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  background: linear-gradient(180deg, transparent, rgba(10, 7, 4, 0.78));
+  pointer-events: none;
+}
+
+@media (max-height: 760px) {
+  .scene-window .scene-caption {
+    font-size: 13px;
+    padding: 14px 12px 6px;
+  }
+}
+
 .progress-meter {
   display: flex;
   align-items: center;
@@ -2281,15 +2306,6 @@ select:focus {
 
 /* ---- Dungeon config screen ---- */
 
-.dungeon-name {
-  text-align: center;
-  font-size: 22px;
-  background: linear-gradient(180deg, var(--text-primary), var(--text-secondary));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
 .tier-card-list {
   display: flex;
   flex-direction: column;
@@ -3007,10 +3023,6 @@ select:focus {
   .totem-banner .avatar-img {
     max-width: 84px;
     min-width: 64px;
-  }
-
-  .dungeon-name {
-    font-size: 18px;
   }
 
   .dungeon-info-desc {
@@ -5007,44 +5019,6 @@ button.totem-hero-frame {
 }
 
 /* ---- Answer-mode picker (dungeon setup) --------------------------------- */
-
-.answer-mode-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.answer-mode-option {
-  appearance: none;
-  font-family: inherit;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 12px;
-  text-align: left;
-  cursor: pointer;
-  color: var(--text-primary);
-  background: var(--surface-card);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-md);
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.answer-mode-option[data-selected='true'] {
-  border-color: var(--accent-gold);
-  background: linear-gradient(180deg, rgba(242, 193, 78, 0.14), var(--bg-card));
-}
-
-.answer-mode-option .label {
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.answer-mode-option .sub {
-  font-size: 11.5px;
-  color: var(--text-secondary);
-  line-height: 1.35;
-}
 
 /* ---- New content notice --------------------------------------------------
 

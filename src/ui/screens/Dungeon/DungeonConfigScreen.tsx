@@ -27,8 +27,6 @@ import { UiIcon } from '@/ui/components/UiIcon'
 export function DungeonConfigScreen() {
   const goTo = useUiStore((s) => s.goTo)
   const totems = usePersistentStore((s) => s.totems)
-  const englishAnswerMode = usePersistentStore((s) => s.settings.englishAnswerMode)
-  const updateSettings = usePersistentStore((s) => s.updateSettings)
   const activeTotemId = usePersistentStore((s) => s.activeTotemId)
   const spellSets = usePersistentStore((s) => s.spellSets)
   const lastSelection = usePersistentStore((s) => s.lastDungeonSelection)
@@ -73,7 +71,7 @@ export function DungeonConfigScreen() {
    * choice over the top of it.
    */
   const [openSetting, setOpenSetting] = useState<
-    null | 'world' | 'tier' | 'totemSet' | 'dungeonSet' | 'answerMode'
+    null | 'world' | 'tier' | 'totemSet' | 'dungeonSet'
   >(null)
   const close = () => setOpenSetting(null)
 
@@ -183,12 +181,16 @@ export function DungeonConfigScreen() {
         <>
           {/* What this run is: where you are going, and who with. Every
               other choice is a button below, so this screen stays one
-              screenful however many worlds and tiers exist. */}
-          <h2 className="dungeon-name">{tier.name}</h2>
+              screenful however many worlds and tiers exist.
 
+              The tier's name used to be a heading above this window. It is
+              a caption for the picture, so it reads better inside it — and
+              a heading's worth of height is a heading's worth of scrolling
+              on a short phone. */}
           <div className="scene-window compact">
             <WorldImage world={world} folder="locations" slot="entrance" alt="던전 입구" />
             <span className="scene-tag">{world?.name ?? tier.label}</span>
+            <span className="scene-caption">{tier.name}</span>
           </div>
 
           {/* Who you are taking, and who is waiting. Side by side because
@@ -238,57 +240,35 @@ export function DungeonConfigScreen() {
                     : '— 선택 —'}
               </span>
             </button>
-            <button className="setup-option wide" onClick={() => setOpenSetting('answerMode')}>
-              <span className="setup-option-label">영어 답 입력 방식</span>
-              <span className="setup-option-value">
-                {englishAnswerMode === 'choice' ? '단어 고르기' : '철자 맞추기'}
-              </span>
-            </button>
           </div>
 
-          {dungeonSet && (
+          {dungeonSet && chosenSetTooSmall && (
             // A set that cannot carry the tier is told what it is short of
             // rather than what the run would be like — the old line read
             // "9 of 9 words will be used", which describes a run this tier
             // will not start.
-            <p className={`setup-summary${chosenSetTooSmall ? ' warn' : ' faint'}`}>
-              {chosenSetTooSmall
-                ? `이 등급은 단어 ${tier.wordLimit}개가 필요합니다 — ${tier.wordLimit - dungeonSet.spellIds.length}개 모자랍니다`
-                : `단어 ${dungeonSet.spellIds.length}개 중 ${tier.wordLimit}개를 사용합니다 · 전부 익혀야 열쇠 · 보스 결계 ${tier.barrierWords}개`}
+            <p className="setup-summary warn">
+              이 등급은 단어 {tier.wordLimit}개가 필요합니다 — {tier.wordLimit - dungeonSet.spellIds.length}개
+              모자랍니다
             </p>
           )}
           {dungeonRandom && randomPool.length > 0 && (
             <p className="faint setup-summary">시작할 때마다 세트를 하나 고릅니다</p>
           )}
-          {/* What the dungeon is actually like, and what it expects of the
-              Totem. The old line said "enemy damage ×1.25", which is a
-              number from the balance file rather than anything a player can
-              act on. */}
-          {/* What is actually down there, and how it compares to you. The
-              level band is the whole difficulty of a run now, so it is the
-              one number worth showing before committing. */}
-          {world && (() => {
-            const [low, high] = enemyLevelRange(world.id, tierId)
-            const fair = recommendedLevel(world.id, tierId)
-            // Where the Totem sits inside the band, rather than a pass/fail
-            // against its midpoint. A level-1 Totem in a 1-10 dungeon is
-            // exactly where it belongs — the draw leans shallow — and being
-            // told on the only screen it can reach that this is "a stretch"
-            // is both discouraging and untrue.
-            const standing =
-              totem.level >= high
-                ? { text: '여유롭습니다', warn: false }
-                : totem.level >= fair
-                  ? { text: '해볼 만합니다', warn: false }
-                  : totem.level >= low
-                    ? { text: '깊은 곳은 위험합니다', warn: false }
-                    : { text: `벅찹니다 — Lv ${low} 이상을 권합니다`, warn: true }
-            return (
-              <p className={`setup-summary${standing.warn ? ' warn' : ' faint'}`}>
-                적 레벨 {low}–{high} · 내 토템 Lv {totem.level} — {standing.text}
-              </p>
-            )
-          })()}
+          {/* What the panels above do not say.
+ *
+              The Totem and the boss are side by side up there with their
+              levels and the matchup between them, so a line repeating the
+              Totem's level and a verdict was saying it twice — and a second
+              line of small print is a second line to scroll past. What is
+              left is the band the ordinary foes roll in, which no panel
+              shows, and the shape of the run. */}
+          {world && !chosenSetTooSmall && (
+            <p className="faint setup-summary">
+              적 레벨 {enemyLevelRange(world.id, tierId)[0]}–{enemyLevelRange(world.id, tierId)[1]} · 단어{' '}
+              {tier.wordLimit}개 전부를 익혀야 열쇠 · 보스 결계 {tier.barrierWords}개
+            </p>
+          )}
 
           {openSetting === 'world' && (
             <SlidePanel title="세계" onClose={close}>
@@ -434,36 +414,6 @@ export function DungeonConfigScreen() {
                   close()
                 }}
               />
-            </SlidePanel>
-          )}
-
-          {openSetting === 'answerMode' && (
-            <SlidePanel title="영어 답 입력 방식" onClose={close}>
-              <div className="answer-mode-row">
-                <button
-                  className="answer-mode-option"
-                  data-selected={englishAnswerMode === 'choice'}
-                  onClick={() => {
-                    updateSettings({ englishAnswerMode: 'choice' })
-                    close()
-                  }}
-                >
-                  <span className="label">단어 고르기</span>
-                  <span className="sub">뜻을 통째로 골라 답합니다</span>
-                </button>
-                <button
-                  className="answer-mode-option"
-                  data-selected={englishAnswerMode === 'spell'}
-                  onClick={() => {
-                    updateSettings({ englishAnswerMode: 'spell' })
-                    close()
-                  }}
-                >
-                  <span className="label">철자 맞추기</span>
-                  <span className="sub">글자를 하나씩 배열합니다</span>
-                </button>
-              </div>
-              <p className="faint">한국어 답은 언제나 음절로 조합합니다.</p>
             </SlidePanel>
           )}
 
