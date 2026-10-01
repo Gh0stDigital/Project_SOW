@@ -57,8 +57,14 @@ export function describeBag(bag: readonly MaterialEntry[]): MaterialStack[] {
   })
 }
 
+/** Whether the blacksmith will take this at all. */
+export function isSellable(def: MaterialDef): boolean {
+  return def.sellable !== false
+}
+
 /** What the blacksmith pays for `quantity` of one thing. */
 export function sellPrice(def: MaterialDef, quantity = 1): number {
+  if (!isSellable(def)) return 0
   return Math.max(0, Math.round(def.value * Math.max(0, quantity)))
 }
 

@@ -26,7 +26,7 @@ import {
 import { createTotem, equipSpellSet, isUsable, nameFromAvatarKey, STARTING_AVATAR } from '@/systems/totemManager'
 import { STARTING_TOTEM_KEY, isTotemUnlocked } from '@/config/progression'
 import type { MaterialEntry, MaterialId } from '@/domain/material'
-import { addMaterial, removeMaterial, countOfMaterial, sellPrice } from '@/systems/materials'
+import { addMaterial, removeMaterial, countOfMaterial, isSellable, sellPrice } from '@/systems/materials'
 import { findMaterialDef } from '@/config/materials'
 import { payForRecipe, recipeForTotemKey, startingLevelForKey } from '@/systems/forge'
 import { creatureExists } from '@/systems/creatureTotems'
@@ -377,7 +377,9 @@ export const usePersistentStore = create<PersistentStore>()((set, get) => ({
   },
   sellMaterial(materialId, quantity = 1) {
     const def = findMaterialDef(materialId)
-    if (!def || quantity <= 0) return 0
+    // Refused here as well as hidden in the shop, so "the smith will not
+    // take it" is a rule of the save rather than a property of one screen.
+    if (!def || !isSellable(def) || quantity <= 0) return 0
     // Checked before the update rather than inside it, so the caller is told
     // what it earned and a short sale is refused whole.
     const have = countOfMaterial(get().materials, materialId)

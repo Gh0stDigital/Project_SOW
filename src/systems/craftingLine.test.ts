@@ -7,11 +7,12 @@ import {
   materialsForTier,
   materialsFromBoss,
 } from '@/config/materials'
-import { bossMaterialDrops, rollMaterialDrop } from './materials'
+import { bagValue, bossMaterialDrops, isSellable, rollMaterialDrop, sellPrice } from './materials'
 import { recipeForTotemKey } from './forge'
 import { creatureKey } from './creatureTotems'
 import { bossSlotFor } from '@/config/bosses'
 import { dungeonTiers } from '@/config/balance'
+import { getAsset, hasAsset } from '@/config/assets'
 
 const DKP = 'dragon-king-palace'
 const key = (folder: 'enemies' | 'bosses', slot: string) => creatureKey({ worldId: DKP, folder, slot })
@@ -28,7 +29,7 @@ describe('the four stated recipes', () => {
     expect(asList('slime', 10)).toEqual({
       meteor_iron: 1,
       hanji: 1,
-      ink: 2,
+      red_ink: 2,
       memory_dragon_king_palace: 1,
     })
   })
@@ -37,7 +38,7 @@ describe('the four stated recipes', () => {
     expect(asList('dragonWarriorWarden', 25)).toEqual({
       meteor_iron: 2,
       hanji: 1,
-      ink: 2,
+      red_ink: 2,
       memory_dragon_king_palace: 2,
     })
   })
@@ -46,7 +47,7 @@ describe('the four stated recipes', () => {
     expect(asList('minotaur', 35)).toEqual({
       meteor_iron: 3,
       hanji: 1,
-      ink: 2,
+      red_ink: 2,
       memory_dragon_king_palace: 2,
     })
   })
@@ -55,7 +56,7 @@ describe('the four stated recipes', () => {
     expect(asList('waterDragonRyu', 50)).toEqual({
       meteor_iron: 5,
       hanji: 2,
-      ink: 4,
+      red_ink: 4,
       memory_dragon_king_palace: 2,
       core_lantern_of_ryu: 1,
     })
@@ -107,7 +108,7 @@ describe('the four stated recipes', () => {
 })
 
 describe('the crafting line falls everywhere', () => {
-  const spine = ['meteor_iron', 'hanji', 'ink']
+  const spine = ['meteor_iron', 'hanji', 'red_ink']
 
   it('drops at every tier, so depth is not what gates a recipe', () => {
     for (const tier of dungeonTiers) {
@@ -208,6 +209,54 @@ describe('the catalogue stays coherent', () => {
   it('gives a boss-only material no drop weight, so nothing can roll it', () => {
     for (const def of allMaterialDefs) {
       if (def.fromBoss) expect(def.dropWeight).toBe(0)
+    }
+  })
+})
+
+describe('the crafting line has its art', () => {
+  it('ships a picture for every material a stated recipe asks for', () => {
+    const asked = new Set(
+      ['slime', 'dragonWarriorWarden', 'minotaur', 'waterDragonRyu'].flatMap((slot) =>
+        creatureRecipe(slot, 10).ingredients.map((i) => i.materialId),
+      ),
+    )
+    for (const id of asked) expect(hasAsset('materials', id)).toBe(true)
+  })
+
+  it('still has an emoji behind every one, for anything not yet drawn', () => {
+    // MaterialIcon falls back to it, so a material added tomorrow is
+    // listed rather than blank.
+    for (const def of allMaterialDefs) expect(def.icon.length).toBeGreaterThan(0)
+  })
+
+  it('resolves each picture to its own file, not to a neighbour', () => {
+    const files = new Set<string>()
+    for (const id of ['meteor_iron', 'hanji', 'red_ink', 'memory_dragon_king_palace', 'core_lantern_of_ryu']) {
+      expect(hasAsset('materials', id)).toBe(true)
+      files.add(getAsset('materials', id))
+    }
+    expect(files.size).toBe(5)
+  })
+})
+
+describe('a core memory is a key, not stock', () => {
+  const lantern = getMaterialDef('core_lantern_of_ryu')
+
+  it('is refused at the counter', () => {
+    expect(isSellable(lantern)).toBe(false)
+    expect(sellPrice(lantern, 1)).toBe(0)
+    expect(sellPrice(lantern, 9)).toBe(0)
+  })
+
+  it('does not inflate what the bag is said to be worth', () => {
+    expect(bagValue([{ materialId: 'core_lantern_of_ryu', quantity: 3 }])).toBe(0)
+  })
+
+  it('leaves everything else sellable', () => {
+    for (const def of allMaterialDefs) {
+      if (def.id === 'core_lantern_of_ryu') continue
+      expect(isSellable(def)).toBe(true)
+      expect(sellPrice(def, 2)).toBe(def.value * 2)
     }
   })
 })

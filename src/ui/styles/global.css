@@ -1717,6 +1717,17 @@ select:focus {
   text-align: center;
 }
 
+/* The painted version. Sized by the component so one material can be big on
+   the shop counter and small in a reward line, and never squashed: the art
+   is trimmed to its own shape rather than square, so `contain` is what keeps
+   a wide ingot from being stretched into a tall one. */
+.material-icon-img {
+  flex-shrink: 0;
+  object-fit: contain;
+  image-rendering: pixelated;
+  vertical-align: -0.25em;
+}
+
 .material-body {
   flex: 1;
   min-width: 0;

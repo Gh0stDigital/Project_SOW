@@ -65,7 +65,7 @@ const authored: Record<string, ForgeRecipe> = {
     ingredients: [
       { materialId: 'meteor_iron', quantity: 1 },
       { materialId: 'hanji', quantity: 1 },
-      { materialId: 'ink', quantity: 2 },
+      { materialId: 'red_ink', quantity: 2 },
       { materialId: 'memory_dragon_king_palace', quantity: 1 },
     ],
     money: 0,
@@ -75,7 +75,7 @@ const authored: Record<string, ForgeRecipe> = {
     ingredients: [
       { materialId: 'meteor_iron', quantity: 2 },
       { materialId: 'hanji', quantity: 1 },
-      { materialId: 'ink', quantity: 2 },
+      { materialId: 'red_ink', quantity: 2 },
       { materialId: 'memory_dragon_king_palace', quantity: 2 },
     ],
     money: 0,
@@ -85,7 +85,7 @@ const authored: Record<string, ForgeRecipe> = {
     ingredients: [
       { materialId: 'meteor_iron', quantity: 3 },
       { materialId: 'hanji', quantity: 1 },
-      { materialId: 'ink', quantity: 2 },
+      { materialId: 'red_ink', quantity: 2 },
       { materialId: 'memory_dragon_king_palace', quantity: 2 },
     ],
     money: 0,
@@ -95,7 +95,7 @@ const authored: Record<string, ForgeRecipe> = {
     ingredients: [
       { materialId: 'meteor_iron', quantity: 5 },
       { materialId: 'hanji', quantity: 2 },
-      { materialId: 'ink', quantity: 4 },
+      { materialId: 'red_ink', quantity: 4 },
       { materialId: 'memory_dragon_king_palace', quantity: 2 },
       { materialId: 'core_lantern_of_ryu', quantity: 1 },
     ],

@@ -5,6 +5,7 @@ import { AvatarFrame } from '@/ui/components/AvatarFrame'
 import { SlidePanel } from '@/ui/components/SlidePanel'
 import { Bar } from '@/ui/components/Bar'
 import { UiIcon } from '@/ui/components/UiIcon'
+import { MaterialIcon } from '@/ui/components/MaterialIcon'
 import { assetKeys } from '@/config/assets'
 import { creatureRoster, creatureWorldName, isCreatureKey } from '@/systems/creatureTotems'
 import { getMaterialDef } from '@/config/materials'
@@ -160,9 +161,7 @@ export function ForgeBench() {
               const def = getMaterialDef(ing.materialId)
               return (
                 <div key={ing.materialId} className={`recipe-line${ing.met ? ' met' : ''}`}>
-                  <span className="material-icon" aria-hidden="true">
-                    {def.icon}
-                  </span>
+                  <MaterialIcon def={def} size={38} />
                   <span className="recipe-name">{def.name}</span>
                   <span className={`recipe-count${ing.met ? ' met' : ''}`}>
                     {ing.have}/{ing.quantity}

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { usePersistentStore } from '@/state/persistentStore'
 import { SmithCounter } from '@/ui/components/SmithCounter'
 import { UiIcon } from '@/ui/components/UiIcon'
-import { bagValue, describeBag, sellPrice } from '@/systems/materials'
+import { MaterialIcon } from '@/ui/components/MaterialIcon'
+import { bagValue, describeBag, isSellable, sellPrice } from '@/systems/materials'
 
 /**
  * The selling half of the workshop.
@@ -62,9 +63,7 @@ export function SellCounter() {
         <div className="list">
           {stacks.map(({ def, quantity }) => (
             <div key={def.id} className={`card material-row kind-${def.kind}`}>
-              <span className="material-icon" aria-hidden="true">
-                {def.icon}
-              </span>
+              <MaterialIcon def={def} size={42} />
               <div className="material-body">
                 <div className="material-name">
                   {def.name}
@@ -72,10 +71,19 @@ export function SellCounter() {
                   <span className="faint">×{quantity}</span>
                 </div>
                 <div className="faint material-desc">{def.description}</div>
-                <div className="faint">
-                  <UiIcon name="money" size={12} /> 개당 {def.value} · 전부 {sellPrice(def, quantity)}
-                </div>
+                {isSellable(def) ? (
+                  <div className="faint">
+                    <UiIcon name="money" size={12} /> 개당 {def.value} · 전부 {sellPrice(def, quantity)}
+                  </div>
+                ) : (
+                  <div className="faint">대장장이는 이것을 받지 않습니다</div>
+                )}
               </div>
+              {/* A core memory has no buttons at all. It is a key, not
+                  stock — the one thing between the player and a Totem they
+                  fought for — and no amount of confirming makes a "sell"
+                  next to it a good idea. */}
+              {isSellable(def) && (
               <div className="material-actions">
                 <button className="btn btn-ghost btn-sm" onClick={() => sell(def.id, 1)}>
                   1개 팔기
@@ -92,6 +100,7 @@ export function SellCounter() {
                   {arming === def.id ? `정말 ${quantity}개?` : '전부'}
                 </button>
               </div>
+              )}
             </div>
           ))}
         </div>

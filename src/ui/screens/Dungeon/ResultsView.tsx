@@ -9,6 +9,7 @@ import { pct, type RunReport, type WordReportRow } from '@/systems/runResults'
 import type { ItemId } from '@/domain/item'
 import { SlidePanel } from '@/ui/components/SlidePanel'
 import { UiIcon } from '@/ui/components/UiIcon'
+import { MaterialIcon } from '@/ui/components/MaterialIcon'
 
 type DetailPanel = 'words' | 'haul' | null
 
@@ -186,7 +187,7 @@ function HaulPanel({ report, onClose }: { report: RunReport; onClose: () => void
               const def = getMaterialDef(id)
               return (
                 <span key={id} className="reward-line">
-                  {def.icon} {def.name} ×{count}
+                  <MaterialIcon def={def} size={20} /> {def.name} ×{count}
                 </span>
               )
             })}

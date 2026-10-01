@@ -4,6 +4,7 @@
 
 export const assetManifest = {
   icons: ['anvilIcon', 'BookIcon', 'chartIcon', 'chestIcon', 'deckIcon', 'expIcon', 'heartIcon', 'keyIcon', 'moneyIcon', 'totemIcon', 'trashcanIcon'],
+  materials: ['core_lantern_of_ryu', 'hanji', 'memory_dragon_king_palace', 'meteor_iron', 'red_ink'],
   shop: ['keeper', 'smith'],
   spells: ['dark', 'earth', 'fire', 'light', 'water', 'wind'],
   totems: ['Dolbae', 'Magic_Parasite_Zoah', 'parasite_hunter_Yaharl', 'Silver Knight', 'TheExplorer', 'Thirthteeth_Knight'],
@@ -27,6 +28,11 @@ export const assetFiles: Readonly<Record<string, string>> = {
   "icons/moneyIcon": "moneyIcon.webp",
   "icons/totemIcon": "totemIcon.webp",
   "icons/trashcanIcon": "trashcanIcon.webp",
+  "materials/core_lantern_of_ryu": "core_lantern_of_ryu.webp",
+  "materials/hanji": "hanji.webp",
+  "materials/memory_dragon_king_palace": "memory_dragon_king_palace.webp",
+  "materials/meteor_iron": "meteor_iron.webp",
+  "materials/red_ink": "red_ink.webp",
   "shop/keeper": "keeper.webp",
   "shop/smith": "smith.webp",
   "spells/dark": "dark.webp",

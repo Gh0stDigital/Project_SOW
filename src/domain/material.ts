@@ -54,6 +54,15 @@ export interface MaterialDef {
    */
   worlds?: readonly string[]
   /**
+   * Whether the blacksmith will take it off you. Absent means yes.
+   *
+   * A core memory is a key, not stock: it is the one thing standing between
+   * the player and a Totem they have fought for, and a tap on "sell" is a
+   * very fast way to lose it. The smith refuses, which is simpler to
+   * understand than a warning and impossible to get wrong.
+   */
+  sellable?: boolean
+  /**
    * The boss art slot that drops this, if only one thing does.
    *
    * Such a material is kept out of the ordinary table entirely — it is not

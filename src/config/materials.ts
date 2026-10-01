@@ -168,10 +168,10 @@ const defs: MaterialDef[] = [
     dropWeight: 7,
   },
   {
-    id: 'ink',
-    name: '먹',
+    id: 'red_ink',
+    name: '붉은 먹',
     icon: '🖌️',
-    description: '갈아 쓰는 먹. 한지에 적힌 말을 지워지지 않게 합니다.',
+    description: '주칠 합에 갈아 둔 붉은 먹. 한지에 적힌 말을 지워지지 않게 합니다.',
     kind: 'material',
     value: 14,
     tiers: ['tier10', 'tier25', 'tier50'],
@@ -179,9 +179,9 @@ const defs: MaterialDef[] = [
   },
   {
     id: 'memory_dragon_king_palace',
-    name: '세계의 기억 · 용왕의 던전',
-    icon: '🌀',
-    description: '용궁에서만 건져 올릴 수 있는 기억 한 조각. 그 세계의 토템에는 반드시 들어갑니다.',
+    name: '세계의 기억 · 용왕의 단지',
+    icon: '🏺',
+    description: '용궁에서만 건져 올릴 수 있는 단지. 그 세계의 기억이 담겨 있어, 용궁의 토템에는 반드시 들어갑니다.',
     kind: 'material',
     value: 60,
     tiers: ['tier10', 'tier25', 'tier50'],
@@ -201,6 +201,9 @@ const defs: MaterialDef[] = [
     // only way to get one is to put Ryu down.
     fromBoss: 'waterDragonRyu',
     dropWeight: 0,
+    // And never over the counter either. Beating Ryu again is the only way
+    // to replace one.
+    sellable: false,
   },
 ]
 
