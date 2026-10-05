@@ -45,6 +45,24 @@ export interface Spell {
   sampleTranslation2: string
 
   /**
+   * Combo target metadata for each example, exactly as the CSV wrote it:
+   *
+   *   dictionaryForm=surfaceForm|dictionaryForm=surfaceForm
+   *
+   * It records which vocabulary entries appear inside the sentence and the
+   * precise form each one takes there (연습하다 → 연습하면). Combo mode blanks
+   * those forms out and asks the player to produce them; nothing derives a
+   * conjugation, the sentence data supplies it.
+   *
+   * Stored as the raw string rather than a parsed structure so that an
+   * entry saved before Combo existed migrates to '' and a re-export
+   * round-trips the cell unchanged. See systems/comboTargets.ts for the
+   * parser. Empty simply means the entry is not Combo-eligible yet.
+   */
+  sampleTargets: string
+  sampleTargets2: string
+
+  /**
    * Conjugations. Populated for verbs and adjectives, or for the derived
    * 하다 verb of a noun/phrase (검토 → 검토하다); empty otherwise.
    */

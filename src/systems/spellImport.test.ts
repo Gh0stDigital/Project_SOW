@@ -533,3 +533,76 @@ describe('a word list that carries two examples per word', () => {
     expect(spell.input.sampleSentence2).toBe('')
   })
 })
+
+describe('the Combo target columns', () => {
+  const HEADER =
+    'word,wordType,definition1,sampleSentence,sampleSentenceTranslation,sampleSentenceTargets,sampleSentence2,sampleSentenceTranslation2,sampleSentence2Targets'
+  const ROW =
+    '나아지다,동사,to improve,계속 연습하면 한국어 실력이 나아질 거예요.,It will improve if you keep practising.,연습하다=연습하면|나아지다=나아질 거예요,실력이 조금씩 나아졌어요.,My ability improved little by little.,나아지다=나아졌어요'
+
+  it('reads both target cells under the names the spec gives them', () => {
+    const [row] = parseImportText(`${HEADER}\n${ROW}`, NONE).ok
+    expect(row.input.sampleTargets).toBe('연습하다=연습하면|나아지다=나아질 거예요')
+    expect(row.input.sampleTargets2).toBe('나아지다=나아졌어요')
+  })
+
+  it('keeps the pipes intact in a comma-delimited file', () => {
+    // The pipe is also one of the delimiters the parser will split a row
+    // on, so the header is what has to decide — not the cell contents.
+    const [row] = parseImportText(`${HEADER}\n${ROW}`, NONE).ok
+    expect(row.input.sampleTargets?.split('|')).toHaveLength(2)
+    expect(row.korean).toBe('나아지다')
+  })
+
+  it('round-trips both cells back out through export', () => {
+    const created = parseImportText(`${HEADER}\n${ROW}`, NONE).ok.map((r) => createSpell(r.input))
+    const back = parseImportText(exportSpellsToCsv(created), NONE).ok[0]
+    expect(back.input.sampleTargets).toBe('연습하다=연습하면|나아지다=나아질 거예요')
+    expect(back.input.sampleTargets2).toBe('나아지다=나아졌어요')
+  })
+
+  it('accepts the Korean and spaced spellings of the headers too', () => {
+    const [row] = parseImportText(
+      'word,definition 1,sample sentence,sample sentence targets\n남다,to remain,시간이 남으면 좋아요.,남다=남으면',
+      NONE,
+    ).ok
+    expect(row.input.sampleTargets).toBe('남다=남으면')
+  })
+
+  it('leaves a list written before Combo existed completely alone', () => {
+    const old = 'word,wordType,definition1,sampleSentence,sampleSentenceTranslation\n물,명사,water,물을 마셨어요.,I drank water.'
+    const result = parseImportText(old, NONE)
+    expect(result.errors).toHaveLength(0)
+    expect(result.ok).toHaveLength(1)
+    expect(result.ok[0].input.sampleSentence).toBe('물을 마셨어요.')
+    expect(result.ok[0].input.sampleTargets).toBe('')
+    expect(result.ok[0].input.sampleTargets2).toBe('')
+  })
+
+  it('fills missing target data on re-import without touching the sentence', () => {
+    // The whole reason the cells are fillable: a list imported before Combo
+    // existed can be given its target data by re-importing the newer file.
+    const saved = [
+      createSpell({
+        korean: '나아지다',
+        english: 'to improve',
+        sampleSentence: '계속 연습하면 한국어 실력이 나아질 거예요.',
+      }),
+    ]
+    const patch = parseImportText(`${HEADER}\n${ROW}`, saved).fills[0].fill!.patch
+    expect(patch.sampleSentence).toBeUndefined()
+    expect(patch.sampleTargets).toBe('연습하다=연습하면|나아지다=나아질 거예요')
+  })
+
+  it('ships target data in the downloadable template', () => {
+    const result = parseImportText(IMPORT_TEMPLATE_CSV, NONE)
+    expect(result.errors).toHaveLength(0)
+    expect(result.ok).toHaveLength(4)
+    const verb = result.ok[0]
+    expect(verb.korean).toBe('전달하다')
+    expect(verb.input.sampleTargets).toBe('전달하다=전달했어요')
+    expect(verb.input.sampleSentence).toBe('내용을 담당자에게 전달했어요.')
+    expect(verb.input.presentForm).toBe('전달해요')
+    expect(result.ok[3].input.notes).toBe('common greeting')
+  })
+})

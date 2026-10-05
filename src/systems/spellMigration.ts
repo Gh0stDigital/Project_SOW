@@ -86,6 +86,12 @@ export function migrateSpell(raw: Spell): Spell {
     // str() turns into '' — the same as an entry that simply has one.
     sampleSentence2: str(loose.sampleSentence2),
     sampleTranslation2: str(loose.sampleTranslation2),
+    // Absent from every save written before Combo mode, which str() turns
+    // into '' — the same as an entry whose examples carry no target data.
+    // An entry in that state is simply not Combo-eligible; nothing else
+    // about it changes.
+    sampleTargets: str(loose.sampleTargets),
+    sampleTargets2: str(loose.sampleTargets2),
     derivedVerb,
     // Guard against a save where the type was later changed to one that
     // doesn't conjugate, leaving stale forms behind.

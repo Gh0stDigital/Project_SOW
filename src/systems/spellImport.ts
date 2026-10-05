@@ -13,17 +13,29 @@
  * A header row unlocks the full structured form, in any column order:
  *
  *   word, word type, definition 1, definition 2, definition 3,
- *   sample sentence, sample translation, derived verb,
- *   present, past, future, notes
+ *   sample sentence, sample translation, sample sentence targets,
+ *   sample sentence 2, sample translation 2, sample sentence 2 targets,
+ *   derived verb, present, past, future, notes
+ *
+ * The two target columns carry Combo mode's data in the form
+ * `dictionaryForm=surfaceForm|dictionaryForm=surfaceForm` — which words
+ * appear in that sentence and the exact shape each one takes. Both are
+ * optional; a list written before Combo existed is unaffected.
  *
  * Element is never imported — it is derived from Word Type (see
  * config/wordTypes.ts), so an Element column in a re-imported export is
  * read and discarded rather than trusted.
  *
- * The delimiter is auto-detected per line (tab, pipe, " - ", or comma) so a
- * straight paste from a spreadsheet (tab-separated) works exactly the same
- * as a hand-typed comma list. Blank lines are ignored and lines starting
- * with # are treated as comments.
+ * The delimiter is auto-detected from the file's first row (tab, pipe,
+ * " - ", or comma) and then applied to every row, so a straight paste from
+ * a spreadsheet (tab-separated) works exactly the same as a hand-typed
+ * comma list. Blank lines are ignored and lines starting with # are treated
+ * as comments.
+ *
+ * One corner: the pipe is both a possible row delimiter and what separates
+ * Combo targets within a cell, so a pipe-delimited file cannot carry a
+ * pipe-separated target cell. comboTargets.ts accepts a semicolon there
+ * for that case.
  */
 
 import type { Spell } from '@/domain/spell'
@@ -83,6 +95,8 @@ type ColumnKey =
   | 'sampleTranslation'
   | 'sampleSentence2'
   | 'sampleTranslation2'
+  | 'sampleTargets'
+  | 'sampleTargets2'
   | 'derivedVerb'
   | 'presentForm'
   | 'pastForm'
@@ -116,6 +130,8 @@ const COLUMN_ALIASES: Record<string, ColumnKey> = {
   '번역': 'sampleTranslation',
   '예문 2': 'sampleSentence2',
   '예문 번역 2': 'sampleTranslation2',
+  '콤보 대상': 'sampleTargets',
+  '콤보 대상 2': 'sampleTargets2',
   '파생 동사': 'derivedVerb',
   '파생동사': 'derivedVerb',
   '현재형': 'presentForm',
@@ -170,6 +186,18 @@ const COLUMN_ALIASES: Record<string, ColumnKey> = {
   'sample sentence translation 2': 'sampleTranslation2',
   'sample translation 2': 'sampleTranslation2',
   translation2: 'sampleTranslation2',
+
+  // Combo target metadata. Absent from every list written before Combo
+  // mode, and absence is not an error — see systems/comboTargets.ts.
+  'sample sentence targets': 'sampleTargets',
+  'sample targets': 'sampleTargets',
+  targets: 'sampleTargets',
+  'sample sentence 1 targets': 'sampleTargets',
+  'sample sentence targets 1': 'sampleTargets',
+  'sample sentence 2 targets': 'sampleTargets2',
+  'sample sentence targets 2': 'sampleTargets2',
+  'sample targets 2': 'sampleTargets2',
+  targets2: 'sampleTargets2',
 
   'derived verb': 'derivedVerb',
   derivedverb: 'derivedVerb',
@@ -380,6 +408,8 @@ const COLUMN_LABELS: Partial<Record<ColumnKey, string>> = {
   sampleTranslation: '예문 번역',
   sampleSentence2: '예문 2',
   sampleTranslation2: '예문 번역 2',
+  sampleTargets: '콤보 대상',
+  sampleTargets2: '콤보 대상 2',
   notes: '메모',
 }
 
@@ -400,6 +430,8 @@ const FILLABLE = [
   'sampleTranslation',
   'sampleSentence2',
   'sampleTranslation2',
+  'sampleTargets',
+  'sampleTargets2',
   'derivedVerb',
   'presentForm',
   'pastForm',
@@ -537,6 +569,8 @@ export function parseImportText(
       sampleTranslation: columns ? get('sampleTranslation') : '',
       sampleSentence2: columns ? get('sampleSentence2') : '',
       sampleTranslation2: columns ? get('sampleTranslation2') : '',
+      sampleTargets: columns ? get('sampleTargets') : '',
+      sampleTargets2: columns ? get('sampleTargets2') : '',
       derivedVerb,
       presentForm: columns ? get('presentForm') : '',
       pastForm: columns ? get('pastForm') : '',
@@ -617,8 +651,10 @@ const EXPORT_HEADER = [
   'definition 3',
   'sample sentence',
   'sample sentence translation',
+  'sample sentence targets',
   'sample sentence 2',
   'sample sentence translation 2',
+  'sample sentence 2 targets',
   'derived verb',
   'present',
   'past',
@@ -651,8 +687,10 @@ export function exportSpellsToCsv(spells: Spell[]): string {
       s.definition3,
       s.sampleSentence,
       s.sampleTranslation,
+      s.sampleTargets,
       s.sampleSentence2,
       s.sampleTranslation2,
+      s.sampleTargets2,
       s.derivedVerb,
       forms ? s.presentForm : '',
       forms ? s.pastForm : '',
@@ -673,13 +711,18 @@ export function definitionSummary(spell: Spell): string {
  * expects — a header row plus filled-in sample rows covering a verb, an
  * adverb and a noun with a derived 하다 verb. CSV so it opens straight
  * into Excel/Sheets/Numbers, but it's just plain text.
+ *
+ * The two target columns are what Combo mode reads: each names the words
+ * inside its sentence and the exact form each one takes there. They are
+ * optional — a list without them imports exactly as it always did, and its
+ * words simply stay unavailable for Combo questions.
  */
 export const IMPORT_TEMPLATE_CSV = [
   EXPORT_HEADER.join(','),
-  '전달하다,동사,,to deliver,to convey,to pass along,내용을 담당자에게 전달했어요.,I passed the information along to the person in charge.,들은 내용을 그대로 팀에 전달했어요.,I passed on exactly what I heard to the team.,,전달해요,전달했어요,전달할 거예요,',
-  '괜히,부사,,for no reason,needlessly,unnecessarily,괜히 걱정했어요.,I worried for no reason.,,,,,,,',
-  '검토,명사,,review,examination,consideration,,,,,검토하다,검토해요,검토했어요,검토할 거예요,',
-  '안녕하세요,표현/관용구,,hello,,,,,,,,,,,common greeting',
+  '전달하다,동사,,to deliver,to convey,to pass along,내용을 담당자에게 전달했어요.,I passed the information along to the person in charge.,전달하다=전달했어요,들은 내용을 그대로 팀에 전달했어요.,I passed on exactly what I heard to the team.,듣다=들은|전달하다=전달했어요,,전달해요,전달했어요,전달할 거예요,',
+  '괜히,부사,,for no reason,needlessly,unnecessarily,괜히 걱정했어요.,I worried for no reason.,괜히=괜히|걱정하다=걱정했어요,,,,,,,,',
+  '검토,명사,,review,examination,consideration,,,,,,,검토하다,검토해요,검토했어요,검토할 거예요,',
+  '안녕하세요,표현/관용구,,hello,,,,,,,,,,,,,common greeting',
 ].join('\n')
 
 /** The short two-column form, for players who just want a quick list. */

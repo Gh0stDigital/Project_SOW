@@ -187,3 +187,31 @@ describe('definitions and accepted answers', () => {
     expect(edited.presentForm).toBe('전달해요')
   })
 })
+
+describe('a save written before Combo mode', () => {
+  it('reads as having no target data rather than undefined', () => {
+    const legacy = {
+      id: 'spell_1',
+      korean: '나아지다',
+      english: 'to improve',
+      sampleSentence: '계속 연습하면 한국어 실력이 나아질 거예요.',
+    } as unknown as Spell
+    const migrated = migrateSpell(legacy)
+    expect(migrated.sampleTargets).toBe('')
+    expect(migrated.sampleTargets2).toBe('')
+    // And the example it already had is untouched: an old save loses
+    // nothing by Combo existing, it is simply not eligible for it.
+    expect(migrated.sampleSentence).toBe('계속 연습하면 한국어 실력이 나아질 거예요.')
+  })
+
+  it('preserves target data once it has some', () => {
+    const saved = {
+      id: 'spell_2',
+      korean: '남다',
+      english: 'to remain',
+      sampleSentence: '시간이 좀 남으면 공부할 거예요.',
+      sampleTargets: '남다=남으면|공부하다=공부할 거예요',
+    } as unknown as Spell
+    expect(migrateSpell(saved).sampleTargets).toBe('남다=남으면|공부하다=공부할 거예요')
+  })
+})

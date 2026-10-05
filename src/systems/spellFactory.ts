@@ -19,6 +19,9 @@ export interface SpellContentInput {
   sampleTranslation?: string
   sampleSentence2?: string
   sampleTranslation2?: string
+  /** Combo target metadata, raw: `dictionaryForm=surfaceForm|…`. */
+  sampleTargets?: string
+  sampleTargets2?: string
   derivedVerb?: string
   presentForm?: string
   pastForm?: string
@@ -71,6 +74,8 @@ export function normalizeContent(input: SpellContentInput): {
   sampleTranslation: string
   sampleSentence2: string
   sampleTranslation2: string
+  sampleTargets: string
+  sampleTargets2: string
   derivedVerb: string
   presentForm: string
   pastForm: string
@@ -92,6 +97,8 @@ export function normalizeContent(input: SpellContentInput): {
     sampleTranslation: clean(input.sampleTranslation),
     sampleSentence2: clean(input.sampleSentence2),
     sampleTranslation2: clean(input.sampleTranslation2),
+    sampleTargets: clean(input.sampleTargets),
+    sampleTargets2: clean(input.sampleTargets2),
     derivedVerb,
     presentForm: keepForms ? clean(input.presentForm) : '',
     pastForm: keepForms ? clean(input.pastForm) : '',
