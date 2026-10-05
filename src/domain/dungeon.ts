@@ -2,6 +2,7 @@ import type { WorldFolder } from '@/systems/worldRegistry'
 import type { DungeonEventType } from '@/config/dungeonEvents'
 import type { DungeonTierId } from '@/config/balance'
 import type { Challenge } from './challenge'
+import type { CombatMode } from './combo'
 import type { RestNpc } from '@/systems/restNpcs'
 
 export interface DungeonConfig {
@@ -17,6 +18,15 @@ export interface DungeonConfig {
    * follows from it.
    */
   worldId: string
+  /**
+   * Which question layer this run uses — see CombatMode.
+   *
+   * It lives on the run's config rather than in settings because it is a
+   * property of this descent, chosen on the way in: a player may well want
+   * sentences in a tier they know and plain recall in one they are only
+   * surviving. Nothing outside the run reads it.
+   */
+  combatMode: CombatMode
 }
 
 /**

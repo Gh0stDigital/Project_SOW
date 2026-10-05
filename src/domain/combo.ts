@@ -11,6 +11,18 @@
  * form, which is the point — the list supplies every expected answer.
  */
 
+/**
+ * Which question layer a dungeon run uses.
+ *
+ * 'normal' is the combat the game has always had: recognise or recall the
+ * word on its own. 'combo' asks for the same words inside sentences, in the
+ * form the sentence needs. Everything else about the run — the foes, the
+ * damage, the timers, the progression, the rewards — is the same either way.
+ *
+ * Chosen once, before the run, and fixed for its duration.
+ */
+export type CombatMode = 'normal' | 'combo'
+
 export interface ComboTarget {
   /** The vocabulary entry this refers to, in dictionary form. */
   dictionaryForm: string

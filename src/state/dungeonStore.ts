@@ -59,6 +59,7 @@ import {
   spawnBoss,
   spawnMimic,
   beginPlayerChallenge,
+  type ComboContext,
   outmatchedBy,
   resolvePlayerAttack,
   beginEnemyChallenge,
@@ -195,10 +196,10 @@ interface DungeonStore {
   selectCard(spellId: string): void
   /** The word the barrier demands next, or null when it is down. */
   spinBarrier(): string | null
-  submitAttackAnswer(text: string): void
+  submitAttackAnswer(text: string | string[]): void
   continueAfterPlayerResolve(): void
   tickBattleTimer(deltaSeconds: number): void
-  submitDefenseAnswer(text: string): void
+  submitDefenseAnswer(text: string | string[]): void
   triggerDefenseTimeout(): void
   continueAfterEnemyResolve(): void
   continueAfterVictory(): void
@@ -240,6 +241,19 @@ function depthLevel(run: DungeonRunState): number {
 
 function totemDeckIds(run: DungeonRunState): string[] {
   return usePersistentStore.getState().spellSets.find((s) => s.id === run.config.totemSpellSetId)?.spellIds ?? []
+}
+
+/**
+ * What a Combo run hands the battle engine, or null in a Normal run.
+ *
+ * The equipped words are passed so that a sentence can take a second gap
+ * for another word the player actually brought down here — the Combo in
+ * Combo mode. In a Normal run this is null and the engine behaves exactly
+ * as it always has.
+ */
+function comboContextFor(run: DungeonRunState): ComboContext | null {
+  if (run.config.combatMode !== 'combo') return null
+  return { equipped: resolveSpells(totemDeckIds(run), usePersistentStore.getState().spells) }
 }
 
 /**
@@ -750,11 +764,11 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
   },
 
   selectCard(spellId) {
-    const { battle } = get()
-    if (!battle || battle.phase !== 'player_select') return
+    const { battle, run } = get()
+    if (!battle || !run || battle.phase !== 'player_select') return
     const spell = findSpell(usePersistentStore.getState().spells, spellId)
     if (!spell) return
-    set({ battle: beginPlayerChallenge(battle, spell) })
+    set({ battle: beginPlayerChallenge(battle, spell, comboContextFor(run)) })
   },
 
   submitAttackAnswer(text) {
@@ -804,6 +818,7 @@ export const useDungeonStore = create<DungeonStore>()((set, get) => ({
         Math.random,
         run.wordStats,
         outmatchedBy(levelOf(run.config.totemId), battle.enemy.level),
+        comboContextFor(run),
       ),
     })
   },
@@ -1127,7 +1142,7 @@ function resolveTreasure(set: SetFn, run: DungeonRunState, correct: boolean) {
   })
 }
 
-function resolveDefense(set: SetFn, get: GetFn, text: string, timedOut: boolean) {
+function resolveDefense(set: SetFn, get: GetFn, text: string | string[], timedOut: boolean) {
   const { battle, run, submitting } = get()
   if (!battle || !run || submitting) return
   if (battle.phase !== 'enemy_challenge' || !battle.activeChallenge || !battle.defense) return

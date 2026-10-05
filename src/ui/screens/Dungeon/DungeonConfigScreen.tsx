@@ -17,6 +17,8 @@ import {
 } from '@/config/balance'
 import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
 import { reachableWordCount } from '@/systems/spellSetManager'
+import { hasComboData } from '@/systems/comboTargets'
+import type { CombatMode } from '@/domain/combo'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
 import { RANDOM_SET_ID, pickRandomSet, usableSets } from '@/systems/spellSetManager'
@@ -31,6 +33,7 @@ export function DungeonConfigScreen() {
   const totems = usePersistentStore((s) => s.totems)
   const activeTotemId = usePersistentStore((s) => s.activeTotemId)
   const spellSets = usePersistentStore((s) => s.spellSets)
+  const allSpells = usePersistentStore((s) => s.spells)
   const lastSelection = usePersistentStore((s) => s.lastDungeonSelection)
   const setLastSelection = usePersistentStore((s) => s.setLastDungeonSelection)
   const beginDungeon = useDungeonStore((s) => s.beginDungeon)
@@ -62,6 +65,14 @@ export function DungeonConfigScreen() {
     isTierUnlocked(lastSelection.tierId, cleared) ? lastSelection.tierId : deepestUnlockedTier(cleared),
   )
   const [worldId, setWorldId] = useState<string | null>(() => worlds[0]?.id ?? null)
+  /**
+   * Normal or Combo, for this descent only.
+   *
+   * Remembered from the last run rather than defaulted every time: a player
+   * who wants sentences wants them for more than one run. A save written
+   * before Combo existed remembers nothing, which reads as Normal.
+   */
+  const [combatMode, setCombatMode] = useState<CombatMode>(lastSelection.combatMode ?? 'normal')
 
   /**
    * Which setting is open, if any.
@@ -125,6 +136,20 @@ export function DungeonConfigScreen() {
   // rearrangement of what is there.
   const canCombine = spellSets.length >= 2 && reachableWordCount(spellSets) >= minWords
 
+  /**
+   * How many of this run's words Combo can actually ask a sentence about.
+   *
+   * Worth saying out loud before the run rather than discovering in the
+   * fight: Combo needs target data in the vocabulary list, and a word
+   * without it falls back to its normal question. A set imported before
+   * Combo existed would otherwise look like a Combo run and play like a
+   * normal one, with nothing on screen to explain why.
+   */
+  const comboReady = (dungeonSet?.spellIds ?? []).filter((id) => {
+    const sp = allSpells.find((x) => x.id === id)
+    return !!sp && hasComboData(sp)
+  }).length
+
   const canStart =
     !!totem &&
     isUsable(totem) &&
@@ -152,9 +177,18 @@ export function DungeonConfigScreen() {
       totemSpellSetId: totemSet.id,
       dungeonSpellSetId: dungeonSetId ?? chosen.id,
       tierId,
+      combatMode,
       ...(dungeonRandom ? { lastRandomSetId: chosen.id } : {}),
     })
-    const config = buildDungeonConfig(totem.id, totemSet.id, chosen.id, chosen.spellIds, tier, world.id)
+    const config = buildDungeonConfig(
+      totem.id,
+      totemSet.id,
+      chosen.id,
+      chosen.spellIds,
+      tier,
+      world.id,
+      combatMode,
+    )
     // The shrine sting first, then the screen goes dark on top of it, and the
     // dungeon is built behind the curtain. The dungeon's own music does not
     // start until the reveal has finished — useSoundtrack holds it — so the
@@ -251,7 +285,40 @@ export function DungeonConfigScreen() {
                     : '— 선택 —'}
               </span>
             </button>
+
+            {/* How the run will ask its questions. Everything else about it
+                — the foes, the damage, the clock, what a word earns — is
+                the same either way; only the question changes. */}
+            <div className="mode-switch" role="group" aria-label="전투 방식">
+              <button
+                data-selected={combatMode === 'normal'}
+                aria-pressed={combatMode === 'normal'}
+                onClick={() => setCombatMode('normal')}
+              >
+                <span className="mode-name">일반</span>
+                <span className="mode-note faint">단어 하나씩</span>
+              </button>
+              <button
+                data-selected={combatMode === 'combo'}
+                aria-pressed={combatMode === 'combo'}
+                onClick={() => setCombatMode('combo')}
+              >
+                <span className="mode-name">콤보</span>
+                <span className="mode-note faint">문장 속 활용형</span>
+              </button>
+            </div>
           </div>
+
+          {/* Combo leans on data the vocabulary list has to carry, so what
+              it can actually ask about is said here rather than found out
+              in the first fight. */}
+          {combatMode === 'combo' && !dungeonRandom && dungeonSet && (
+            <p className={`setup-summary ${comboReady === 0 ? 'warn' : 'faint'}`}>
+              {comboReady === 0
+                ? '이 세트에는 콤보 예문 정보가 없습니다 — 일반 문제로 나옵니다'
+                : `콤보 문장 가능 ${comboReady}/${dungeonSet.spellIds.length}개 · 나머지는 일반 문제`}
+            </p>
+          )}
 
           {dungeonSet && chosenSetTooSmall && (
             // A set that cannot carry the tier is told what it is short of

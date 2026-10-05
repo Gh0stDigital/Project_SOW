@@ -25,7 +25,7 @@ function freshRun(words: number) {
   const spells = Array.from({ length: words }, (_, i) =>
     createSpell({ korean: `단어${i}`, english: `word${i}` }),
   )
-  const config = buildDungeonConfig('t', 's', 's', spells.map((s) => s.id), tier, worldId, lcg())
+  const config = buildDungeonConfig('t', 's', 's', spells.map((s) => s.id), tier, worldId, 'normal', lcg())
   return { run: startDungeon(config), spells }
 }
 

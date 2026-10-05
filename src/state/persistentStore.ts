@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { Spell } from '@/domain/spell'
+import type { CombatMode } from '@/domain/combo'
 import type { SpellSet } from '@/domain/spellSet'
 import type { Totem } from '@/domain/totem'
 import type { GameSettings } from '@/domain/settings'
@@ -50,6 +51,12 @@ export interface DungeonSelectionDraft {
    * on any selection that named its own set.
    */
   lastRandomSetId?: string | null
+  /**
+   * The question layer the last run used, so a player who prefers
+   * sentences does not have to say so every time. Absent on a save written
+   * before Combo existed, which reads as 'normal'.
+   */
+  combatMode?: CombatMode
 }
 
 export interface PersistedData {

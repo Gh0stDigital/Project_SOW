@@ -1403,6 +1403,108 @@ select:focus {
   text-shadow: 0 0 18px var(--glow-gold);
 }
 
+/* ---- Combo mode's question ----
+ *
+ * A Korean sentence with its gaps typed back in. The sentence is the thing
+ * being read, so it gets the size the single prompt word has in a normal
+ * question; the fields underneath are deliberately plain.
+ */
+
+.combo-prompt {
+  text-align: left;
+  padding: 14px 12px;
+}
+
+.combo-prompt .prompt-label {
+  text-align: center;
+}
+
+.combo-sentence {
+  margin: 8px 0 0;
+  font-size: 19px;
+  line-height: 1.85;
+  font-weight: 600;
+  color: var(--text-primary);
+  word-break: keep-all;
+}
+
+/* A gap in the sentence: a number until it is answered, the answer after.
+   Tapping one puts the caret in its field, so the sentence stays the way
+   into the question rather than a picture above it. */
+.combo-gap {
+  appearance: none;
+  display: inline-block;
+  min-width: 56px;
+  margin: 0 2px;
+  padding: 1px 8px 2px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text-secondary);
+  border: none;
+  border-bottom: 2px dashed var(--border-strong);
+  background: transparent;
+}
+
+.combo-gap[data-filled='true'] {
+  color: var(--accent-gold);
+  border-bottom-style: solid;
+}
+
+.combo-gap[data-active='true'] {
+  border-bottom-color: var(--accent-cyan);
+  background: rgb(255 255 255 / 6%);
+}
+
+.combo-translation {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.combo-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.combo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.combo-field-label {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.combo-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px 11px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+}
+
+.combo-field[data-active='true'] input {
+  border-color: var(--accent-cyan);
+}
+
+.combo-field input:focus {
+  outline: none;
+  border-color: var(--accent-cyan);
+}
+
 .challenge-prompt .prompt-label {
   font-size: 12px;
   color: var(--text-secondary);
@@ -5385,6 +5487,58 @@ button.totem-hero-frame {
 .setup-summary {
   text-align: center;
   margin: 2px 0 0;
+}
+
+/* ---- Normal / Combo, chosen on the way in ----
+ *
+ * A segmented pair rather than a fifth settings button: it is a choice
+ * between two things, both worth naming on screen, and this screen's one
+ * hard rule is that the start button stays above the fold. Sits across both
+ * columns of the settings grid so it costs a single row.
+ */
+
+.mode-switch {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-soft);
+  background: var(--surface-panel);
+}
+
+.mode-switch button {
+  appearance: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  text-align: left;
+  padding: 6px 9px;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.mode-switch button[data-selected='true'] {
+  border-color: var(--accent-cyan);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  box-shadow: var(--bevel);
+}
+
+.mode-switch .mode-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.mode-switch .mode-note {
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 

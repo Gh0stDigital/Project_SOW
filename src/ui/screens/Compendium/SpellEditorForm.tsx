@@ -40,6 +40,8 @@ export function SpellEditorForm({ existing, onDone, onCancel }: SpellEditorFormP
   const [sampleTranslation, setSampleTranslation] = useState(existing?.sampleTranslation ?? '')
   const [sampleSentence2, setSampleSentence2] = useState(existing?.sampleSentence2 ?? '')
   const [sampleTranslation2, setSampleTranslation2] = useState(existing?.sampleTranslation2 ?? '')
+  const [sampleTargets, setSampleTargets] = useState(existing?.sampleTargets ?? '')
+  const [sampleTargets2, setSampleTargets2] = useState(existing?.sampleTargets2 ?? '')
   const [derivedVerb, setDerivedVerb] = useState(existing?.derivedVerb ?? '')
   const [presentForm, setPresentForm] = useState(existing?.presentForm ?? '')
   const [pastForm, setPastForm] = useState(existing?.pastForm ?? '')
@@ -74,6 +76,8 @@ export function SpellEditorForm({ existing, onDone, onCancel }: SpellEditorFormP
       sampleTranslation,
       sampleSentence2,
       sampleTranslation2,
+      sampleTargets,
+      sampleTargets2,
       derivedVerb,
       presentForm,
       pastForm,
@@ -200,6 +204,24 @@ export function SpellEditorForm({ existing, onDone, onCancel }: SpellEditorFormP
         />
       </div>
 
+      {/* What Combo mode asks about: which words are in the sentence above
+          and the exact form each one takes there. Optional everywhere — a
+          word without it is simply asked the ordinary way. Normally filled
+          in by importing a list that carries it; this is here so a word
+          typed in by hand, or a form typed in wrong, does not need a
+          re-import to fix. */}
+      <div className="field">
+        <label htmlFor="targets-input">예문 콤보 대상 (선택)</label>
+        <input
+          id="targets-input"
+          type="text"
+          lang="ko"
+          value={sampleTargets}
+          onChange={(e) => setSampleTargets(e.target.value)}
+          placeholder="예: 연습하다=연습하면|나아지다=나아질 거예요"
+        />
+      </div>
+
       {/* A second example. Shown after the answer rather than during it,
           so it teaches without making the prompt longer to read. */}
       <div className="field">
@@ -224,6 +246,18 @@ export function SpellEditorForm({ existing, onDone, onCancel }: SpellEditorFormP
           value={sampleTranslation2}
           onChange={(e) => setSampleTranslation2(e.target.value)}
           placeholder="예: I passed on exactly what I heard to the team."
+        />
+      </div>
+
+      <div className="field">
+        <label htmlFor="targets2-input">예문 2 콤보 대상 (선택)</label>
+        <input
+          id="targets2-input"
+          type="text"
+          lang="ko"
+          value={sampleTargets2}
+          onChange={(e) => setSampleTargets2(e.target.value)}
+          placeholder="예: 듣다=들은|전달하다=전달했어요"
         />
       </div>
 

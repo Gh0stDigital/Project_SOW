@@ -1,4 +1,5 @@
 import type { Spell } from '@/domain/spell'
+import type { CombatMode } from '@/domain/combo'
 import type {
   ActiveModifier,
   DirectionChoice,
@@ -55,6 +56,7 @@ export function buildDungeonConfig(
   dungeonSpellSetWordIds: string[],
   tier: DungeonTierDef,
   worldId: string,
+  combatMode: CombatMode = 'normal',
   rng: () => number = Math.random,
 ): DungeonConfig {
   let pool = [...dungeonSpellSetWordIds]
@@ -72,6 +74,7 @@ export function buildDungeonConfig(
     tierId: tier.id,
     dungeonWordIds: pool,
     worldId,
+    combatMode,
   }
 }
 

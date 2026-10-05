@@ -17,6 +17,7 @@ import { SpellCard } from '@/ui/components/SpellCard'
 import { TotemPanel } from '@/ui/components/TotemPanel'
 import { RunHud } from '@/ui/components/RunHud'
 import { ChallengeView } from './ChallengeView'
+import { ComboChallengeView } from './ComboChallengeView'
 import { WordInfoPanel } from './WordInfoPanel'
 
 export function BattleView() {
@@ -235,29 +236,59 @@ export function BattleView() {
         </>
       )}
 
-      {battle.phase === 'player_challenge' && battle.activeChallenge && challengeSpell && (
-        <ChallengeView
-          challenge={battle.activeChallenge}
-          answer={answerFor(challengeSpell)}
-          decoyPool={decoyPool}
-          onSubmit={submitAttackAnswer}
-          submitLabel="공격!"
-          spell={challengeSpell}
-        />
-      )}
+      {/* One question, two shapes. A Combo run's challenge carries the
+          sentence it is really asking; everything else about the phase —
+          when it appears, what it submits to, what happens after — is the
+          same either way. A word with no target data arrives here without
+          a `combo` field even in a Combo run, and is asked normally. */}
+      {battle.phase === 'player_challenge' &&
+        battle.activeChallenge &&
+        challengeSpell &&
+        (battle.activeChallenge.combo ? (
+          <ComboChallengeView
+            challenge={battle.activeChallenge}
+            combo={battle.activeChallenge.combo}
+            onSubmit={submitAttackAnswer}
+            submitLabel="공격!"
+            hints
+          />
+        ) : (
+          <ChallengeView
+            challenge={battle.activeChallenge}
+            answer={answerFor(challengeSpell)}
+            decoyPool={decoyPool}
+            onSubmit={submitAttackAnswer}
+            submitLabel="공격!"
+            spell={challengeSpell}
+          />
+        ))}
 
-      {battle.phase === 'enemy_challenge' && battle.activeChallenge && challengeSpell && (
-        <ChallengeView
-          challenge={battle.activeChallenge}
-          answer={answerFor(challengeSpell)}
-          decoyPool={decoyPool}
-          onSubmit={submitDefenseAnswer}
-          submitLabel="방어!"
-          timer={battle.timer}
-          spell={challengeSpell}
-          showCounterWindow
-        />
-      )}
+      {battle.phase === 'enemy_challenge' &&
+        battle.activeChallenge &&
+        challengeSpell &&
+        (battle.activeChallenge.combo ? (
+          // No hints on a defense: which word the sentence wants is the
+          // question, so naming it or translating the sentence would be
+          // answering it.
+          <ComboChallengeView
+            challenge={battle.activeChallenge}
+            combo={battle.activeChallenge.combo}
+            onSubmit={submitDefenseAnswer}
+            submitLabel="방어!"
+            timer={battle.timer}
+          />
+        ) : (
+          <ChallengeView
+            challenge={battle.activeChallenge}
+            answer={answerFor(challengeSpell)}
+            decoyPool={decoyPool}
+            onSubmit={submitDefenseAnswer}
+            submitLabel="방어!"
+            timer={battle.timer}
+            spell={challengeSpell}
+            showCounterWindow
+          />
+        ))}
 
       {battle.phase === 'player_resolve' && (
         <>
