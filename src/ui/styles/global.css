@@ -5489,6 +5489,35 @@ button.totem-hero-frame {
   margin: 2px 0 0;
 }
 
+/* Why a Combo run is showing an ordinary question. */
+.combo-missing {
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+/* A Combo run whose words cannot support a single Combo question.
+   Loud, because the alternative is a run that silently plays as Normal and
+   leaves the player thinking the mode is broken — and it carries the fix,
+   since the fix is two screens away. */
+.combo-unready {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  text-align: center;
+  margin-top: 4px;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-gold);
+  background: var(--surface-panel);
+}
+
+.combo-unready p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 /* ---- Normal / Combo, chosen on the way in ----
  *
  * A segmented pair rather than a fifth settings button: it is a choice

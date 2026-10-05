@@ -37,6 +37,15 @@ interface ChallengeViewProps {
    * the chance is still live.
    */
   showCounterWindow?: boolean
+  /**
+   * True when this is a Combo run but this word had no example Combo could
+   * ask about, so the ordinary question is standing in for it.
+   *
+   * Said out loud because the player chose Combo and is looking at tiles.
+   * Without it the mode reads as broken rather than as doing the one
+   * sensible thing for a word whose list cannot support a sentence.
+   */
+  comboUnavailable?: boolean
 }
 
 /**
@@ -54,6 +63,7 @@ export function ChallengeView({
   timer = null,
   spell = null,
   showCounterWindow = false,
+  comboUnavailable = false,
 }: ChallengeViewProps) {
   const asksForKorean = challenge.direction === 'eng_to_kor'
   const kind = asksForKorean ? 'korean' : 'english'
@@ -118,6 +128,7 @@ export function ChallengeView({
       <ExampleSentence spell={spell} mask={asksForKorean} />
 
       <div className="prompt-label">{asksForKorean ? '한국어로 번역하세요' : '영어로 번역하세요'}</div>
+      {comboUnavailable && <div className="combo-missing faint">이 단어에는 콤보 예문이 없습니다</div>}
       <div className="prompt-word" lang={asksForKorean ? 'en' : 'ko'}>
         {challenge.prompt}
       </div>

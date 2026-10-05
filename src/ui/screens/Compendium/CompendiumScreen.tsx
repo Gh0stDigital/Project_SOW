@@ -16,6 +16,7 @@ export function CompendiumScreen() {
   // does not drop the player into the same screen again.
   const [tab, setTab] = useState<Tab>(errand === 'merge' ? 'sets' : 'spells')
   const [startMerging] = useState(errand === 'merge')
+  const [startImporting] = useState(errand === 'import')
   // Cleared in an effect rather than during render: writing to a store
   // mid-render updates another component while this one is rendering, which
   // React is right to complain about. The two useState calls above have
@@ -31,7 +32,10 @@ export function CompendiumScreen() {
    * sitting over the counter says you are still filing paperwork; the
    * screen's own title follows for the same reason.
    */
-  const [subScreen, setSubScreen] = useState<null | 'shop' | 'editor'>(null)
+  // Arriving on the import errand means the import panel is already open,
+  // so the tab row has to be out of the way from the first frame rather
+  // than after the child gets round to saying so.
+  const [subScreen, setSubScreen] = useState<null | 'shop' | 'editor'>(startImporting ? 'shop' : null)
 
   const title = subScreen === 'shop' ? SHOP_NAME : '도감'
 
@@ -68,7 +72,7 @@ export function CompendiumScreen() {
 
       <div className="screen-body">
         {tab === 'spells' ? (
-          <SpellListTab onSubScreen={setSubScreen} />
+          <SpellListTab onSubScreen={setSubScreen} startImporting={startImporting} />
         ) : (
           <SpellSetsTab startMerging={startMerging} />
         )}

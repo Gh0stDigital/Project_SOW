@@ -12,7 +12,7 @@ export type Screen = 'menu' | 'compendium' | 'totem' | 'workshop' | 'dungeon' | 
  * field rather than a general router, because there is exactly one such
  * errand so far.
  */
-export type CompendiumErrand = null | 'merge'
+export type CompendiumErrand = null | 'merge' | 'import'
 
 interface UiStore {
   screen: Screen

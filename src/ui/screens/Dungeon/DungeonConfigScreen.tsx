@@ -139,13 +139,19 @@ export function DungeonConfigScreen() {
   /**
    * How many of this run's words Combo can actually ask a sentence about.
    *
-   * Worth saying out loud before the run rather than discovering in the
-   * fight: Combo needs target data in the vocabulary list, and a word
-   * without it falls back to its normal question. A set imported before
-   * Combo existed would otherwise look like a Combo run and play like a
-   * normal one, with nothing on screen to explain why.
+   * Said out loud before the run rather than discovered in the fight.
+   * Combo needs an example sentence it can find the word inside, and a word
+   * without one falls back to its normal question — so a list imported
+   * before Combo existed plays as an ordinary run with nothing on screen to
+   * explain why. That is the whole of this line's job.
+   *
+   * The random setting is covered too, across every set it might roll: it
+   * was the one way to pick Combo and be told nothing at all.
    */
-  const comboReady = (dungeonSet?.spellIds ?? []).filter((id) => {
+  const comboPoolIds = dungeonRandom
+    ? [...new Set(randomPool.flatMap((s) => s.spellIds))]
+    : (dungeonSet?.spellIds ?? [])
+  const comboReady = comboPoolIds.filter((id) => {
     const sp = allSpells.find((x) => x.id === id)
     return !!sp && hasComboData(sp)
   }).length
@@ -311,13 +317,25 @@ export function DungeonConfigScreen() {
 
           {/* Combo leans on data the vocabulary list has to carry, so what
               it can actually ask about is said here rather than found out
-              in the first fight. */}
-          {combatMode === 'combo' && !dungeonRandom && dungeonSet && (
-            <p className={`setup-summary ${comboReady === 0 ? 'warn' : 'faint'}`}>
-              {comboReady === 0
-                ? '이 세트에는 콤보 예문 정보가 없습니다 — 일반 문제로 나옵니다'
-                : `콤보 문장 가능 ${comboReady}/${dungeonSet.spellIds.length}개 · 나머지는 일반 문제`}
+              in the first fight — and when the answer is "nothing", it is
+              said loudly and with the fix attached. */}
+          {combatMode === 'combo' && comboPoolIds.length > 0 && comboReady > 0 && (
+            <p className="setup-summary faint">
+              콤보 문장 가능 {comboReady}/{comboPoolIds.length}개 · 나머지는 일반 문제
             </p>
+          )}
+          {combatMode === 'combo' && comboPoolIds.length > 0 && comboReady === 0 && (
+            <div className="combo-unready">
+              <p>
+                이 단어들에는 콤보가 낼 수 있는 예문이 없습니다 — 전투는 전부 일반 문제로 나옵니다.
+              </p>
+              <p className="faint">
+                예문과 활용형(또는 콤보 대상) 칸이 있는 단어 목록을 도감에서 다시 가져오면 채워집니다.
+              </p>
+              <button className="btn btn-ghost btn-sm" onClick={() => goToErrand('compendium', 'import')}>
+                도감에서 단어 목록 가져오기
+              </button>
+            </div>
           )}
 
           {dungeonSet && chosenSetTooSmall && (

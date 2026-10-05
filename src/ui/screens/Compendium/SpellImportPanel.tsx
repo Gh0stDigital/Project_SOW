@@ -12,6 +12,8 @@ import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
 import { ShopKeeper } from '@/ui/components/ShopKeeper'
 import { emptyCounter } from '@/systems/wordShop'
+import { hasComboData } from '@/systems/comboTargets'
+import { createSpell } from '@/systems/spellFactory'
 
 /** Saves text as a local file via a throwaway object URL — no network involved. */
 function downloadTextFile(filename: string, content: string, mime: string) {
@@ -82,6 +84,18 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
    */
   const headerHasExample = result.headerColumns?.includes('sampleSentence') ?? false
   const willFill = fillBlanks ? result.fills.length : 0
+  /**
+   * How many of this file's rows Combo could actually ask a sentence about.
+   *
+   * The one number that answers "did my new columns land?" — it was
+   * otherwise only discoverable by starting a Combo run and watching it
+   * play as an ordinary one. Counts rows that will be created and rows the
+   * file would repair, since both end up in the Compendium.
+   */
+  const comboRows = useMemo(() => {
+    const rows = [...result.ok, ...(fillBlanks ? result.fills : [])]
+    return rows.filter((r) => hasComboData(createSpell(r.input))).length
+  }, [result, fillBlanks])
   const canImport = result.ok.length > 0 || willFill > 0
   const importLabel =
     result.ok.length > 0 && willFill > 0
@@ -214,6 +228,14 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
               </span>
             )}
             {result.errors.length > 0 && <span className="import-count error">✕ 오류 {result.errors.length}</span>}
+            {/* Only when the file brings something in at all: a preview of
+                an empty paste saying "콤보 0" is noise, while a list of
+                fifty words saying it is the thing worth knowing. */}
+            {result.ok.length + willFill > 0 && (
+              <span className={`import-count ${comboRows > 0 ? 'fill' : 'duplicate'}`}>
+                콤보 예문 {comboRows}
+              </span>
+            )}
           </div>
 
           <div className="import-preview">

@@ -116,7 +116,7 @@ describe('which entries Combo can ask about', () => {
     expect(hasComboData(other)).toBe(false)
   })
 
-  it('ignores an example with a sentence but no targets', () => {
+  it('keeps an example whose target cell is empty, for the fallback below', () => {
     const half = spell({
       korean: '남다',
       english: 'to remain',
@@ -125,7 +125,76 @@ describe('which entries Combo can ask about', () => {
       sampleSentence2: '밥이 남았어요.',
       sampleTargets2: '',
     })
-    expect(examplesOf(half)).toHaveLength(1)
+    expect(examplesOf(half)).toHaveLength(2)
+  })
+
+  it('falls back to a stored form when the cell names only the other words', () => {
+    // The case that made Combo quietly do nothing: a list that names the
+    // other words in a sentence, reasonably assuming the game knows its own
+    // headword. The entry's own conjugation column answers it.
+    const sp = spell({
+      korean: '나아지다',
+      english: 'to improve',
+      wordType: 'action_verb',
+      futureForm: '나아질 거예요',
+      sampleSentence: '계속 연습하면 한국어 실력이 나아질 거예요.',
+      sampleTargets: '연습하다=연습하면',
+    })
+    expect(hasComboData(sp)).toBe(true)
+    const prompt = buildComboPrompt(sp)!
+    expect(prompt.text).toBe(`계속 연습하면 한국어 실력이 ${COMBO_BLANK}.`)
+    expect(prompt.blanks[0].surfaceForm).toBe('나아질 거예요')
+  })
+
+  it('falls back when there is no target cell at all', () => {
+    const sp = spell({
+      korean: '먹다',
+      english: 'to eat',
+      wordType: 'action_verb',
+      pastForm: '먹었어요',
+      sampleSentence: '아침에 밥을 먹었어요.',
+    })
+    expect(hasComboData(sp)).toBe(true)
+    expect(buildComboPrompt(sp)!.blanks[0].surfaceForm).toBe('먹었어요')
+  })
+
+  it('prefers the longest stored form present, never a fragment of it', () => {
+    const sp = spell({
+      korean: '나아지다',
+      english: 'to improve',
+      wordType: 'action_verb',
+      presentForm: '나아져',
+      futureForm: '나아져요',
+      sampleSentence: '실력이 나아져요.',
+    })
+    expect(buildComboPrompt(sp)!.blanks[0].surfaceForm).toBe('나아져요')
+  })
+
+  it('never invents a stem when no stored form is in the sentence', () => {
+    // exampleSentence.ts will blank 먹 out of 먹었어요 to hide a word, which
+    // is fine for a hint and wrong here: the blank is the expected answer,
+    // and 먹 is an answer no column ever supplied.
+    const sp = spell({
+      korean: '먹다',
+      english: 'to eat',
+      wordType: 'action_verb',
+      sampleSentence: '아침에 밥을 먹었어요.',
+    })
+    expect(hasComboData(sp)).toBe(false)
+    expect(buildComboPrompt(sp)).toBeNull()
+  })
+
+  it('still adds a second blank from the target cell alongside a fallback primary', () => {
+    const primary = spell({
+      korean: '나아지다',
+      english: 'to improve',
+      wordType: 'action_verb',
+      futureForm: '나아질 거예요',
+      sampleSentence: '계속 연습하면 한국어 실력이 나아질 거예요.',
+      sampleTargets: '연습하다=연습하면',
+    })
+    const prompt = buildComboPrompt(primary, { equipped: [primary, 연습하다()], rng: () => 0 })!
+    expect(prompt.blanks.map((b) => b.surfaceForm)).toEqual(['연습하면', '나아질 거예요'])
   })
 
   it('matches a noun equipped in its plain form against a 하다 target', () => {

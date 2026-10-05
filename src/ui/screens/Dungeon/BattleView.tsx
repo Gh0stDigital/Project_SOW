@@ -260,6 +260,7 @@ export function BattleView() {
             onSubmit={submitAttackAnswer}
             submitLabel="공격!"
             spell={challengeSpell}
+            comboUnavailable={run.config.combatMode === 'combo'}
           />
         ))}
 
@@ -287,6 +288,7 @@ export function BattleView() {
             timer={battle.timer}
             spell={challengeSpell}
             showCounterWindow
+            comboUnavailable={run.config.combatMode === 'combo'}
           />
         ))}
 

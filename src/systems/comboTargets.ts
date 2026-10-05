@@ -103,7 +103,8 @@ interface Example {
   targets: ComboTarget[]
 }
 
-/** The entry's examples that carry target data at all, in list order. */
+/** The entry's examples, in list order. An example needs a sentence; its
+ * target cell may be empty — see ownTarget(). */
 export function examplesOf(spell: Spell): Example[] {
   return [
     { sentence: spell.sampleSentence, translation: spell.sampleTranslation, raw: spell.sampleTargets },
@@ -114,7 +115,28 @@ export function examplesOf(spell: Spell): Example[] {
       translation: (e.translation ?? '').trim(),
       targets: parseTargets(e.raw ?? ''),
     }))
-    .filter((e) => e.sentence.length > 0 && e.targets.length > 0)
+    .filter((e) => e.sentence.length > 0)
+}
+
+/**
+ * Every spelling of itself the entry has actually written down.
+ *
+ * Not `spellForms()` from exampleSentence.ts, which also guesses a stem —
+ * 먹다 gives 먹 — because a blank there is only a hint, while here it is the
+ * expected answer. An answer the data never supplied is one the player
+ * cannot be asked for.
+ */
+function storedForms(spell: Spell): string[] {
+  return [
+    spell.korean,
+    spell.derivedVerb,
+    ...(spell.altKorean ?? []),
+    spell.presentForm,
+    spell.pastForm,
+    spell.futureForm,
+  ]
+    .map((f) => (f ?? '').trim())
+    .filter(Boolean)
 }
 
 interface Span {
@@ -147,11 +169,46 @@ function locate(sentence: string, surfaceForm: string, taken: readonly Span[]): 
   }
 }
 
+/**
+ * The entry's own form inside one of its examples — the blank the question
+ * is built around.
+ *
+ * The targets cell is asked first, and a list that names the headword there
+ * is the exact case the format was designed for. But a list may name only
+ * the *other* words in a sentence, on the fair assumption that the game
+ * knows its own headword, and a list may carry no target cell at all while
+ * still holding conjugations. Treating either as "not Combo-eligible" made
+ * the mode quietly do nothing for whole vocabularies, which is a worse
+ * answer than the one available: fall back to the spellings the entry has
+ * itself written down, and take the longest one actually present in the
+ * sentence.
+ *
+ * Nothing here is derived. Every candidate is a string some column already
+ * holds, which is the rule that matters — the surface form is the answer,
+ * so it has to be one the data supplied.
+ *
+ * Secondary blanks are not covered by this: knowing that *another* word
+ * appears in this sentence, and in what shape, is exactly what only the
+ * target cell can say. Without it a Combo question has one blank.
+ */
+function ownTarget(spell: Spell, example: Example): ComboTarget | null {
+  const named = example.targets.find(
+    (t) => matchesSpell(t.dictionaryForm, spell) && locate(example.sentence, t.surfaceForm, []) !== null,
+  )
+  if (named) return named
+
+  const present = storedForms(spell)
+    .filter((form) => example.sentence.includes(form))
+    .sort((a, b) => b.length - a.length)
+  if (present.length === 0) return null
+  // Longest first: 전달했어요 rather than the 전달하다 that is not in there,
+  // and never a fragment of a longer form that is.
+  return { dictionaryForm: spell.korean.trim() || present[0], surfaceForm: present[0] }
+}
+
 /** True when the entry has at least one example Combo can ask about. */
 export function hasComboData(spell: Spell): boolean {
-  return examplesOf(spell).some((e) =>
-    e.targets.some((t) => matchesSpell(t.dictionaryForm, spell) && locate(e.sentence, t.surfaceForm, []) !== null),
-  )
+  return examplesOf(spell).some((e) => ownTarget(spell, e) !== null)
 }
 
 export interface ComboPromptOptions {
@@ -187,9 +244,7 @@ export function buildComboPrompt(
   // primary blank is the question, so there is nothing to ask without it.
   const usable = examplesOf(spell)
     .map((example) => {
-      const own = example.targets.find(
-        (t) => matchesSpell(t.dictionaryForm, spell) && locate(example.sentence, t.surfaceForm, []) !== null,
-      )
+      const own = ownTarget(spell, example)
       return own ? { example, own } : null
     })
     .filter((x): x is { example: Example; own: ComboTarget } => x !== null)
@@ -219,7 +274,7 @@ export function buildComboPrompt(
   // place, and capped twice over: by count, and by how much of the
   // sentence is allowed to disappear.
   const extras = example.targets
-    .filter((t) => t !== own && !matchesSpell(t.dictionaryForm, spell))
+    .filter((t) => t.surfaceForm !== own.surfaceForm && !matchesSpell(t.dictionaryForm, spell))
     .map((t) => {
       const match = equipped.find((e) => e.id !== spell.id && matchesSpell(t.dictionaryForm, e))
       return match ? { target: t, spell: match } : null

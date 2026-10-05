@@ -21,12 +21,14 @@ interface SpellListTabProps {
    * you are still filing paperwork.
    */
   onSubScreen?: (screen: null | 'shop' | 'editor') => void
+  /** Opened to import, rather than to browse — see CompendiumErrand. */
+  startImporting?: boolean
 }
 
-export function SpellListTab({ onSubScreen }: SpellListTabProps = {}) {
+export function SpellListTab({ onSubScreen, startImporting = false }: SpellListTabProps = {}) {
   const spells = usePersistentStore((s) => s.spells)
   const deleteSpell = usePersistentStore((s) => s.deleteSpell)
-  const [editing, setEditing] = useState<'new' | 'import' | Spell | null>(null)
+  const [editing, setEditing] = useState<'new' | 'import' | Spell | null>(startImporting ? 'import' : null)
   const [query, setQuery] = useState('')
 
   const leave = () => {
