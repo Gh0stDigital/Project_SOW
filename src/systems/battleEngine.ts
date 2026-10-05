@@ -14,7 +14,12 @@ import { mimicBalance } from '@/config/dungeonEvents'
 import type { WorldPack } from '@/config/worldManifest'
 import { pickSlot, bossSlot, nameFromSlot } from './worldRegistry'
 import { buildDeck, playCard, visibleCards } from './deck'
-import { generateChallenge, resolveChallenge, type ChallengeResolution } from './challengeEngine'
+import {
+  generateChallenge,
+  generateComboChallenge,
+  resolveChallenge,
+  type ChallengeResolution,
+} from './challengeEngine'
 import { buildPlateau, clearRequirement, isFullyCleared } from './bossPlateau'
 import { damageForSpell } from './spellProgression'
 import { makeId } from './idGen'
@@ -181,10 +186,31 @@ export function visibleHand(state: BattleState, count: number = battleBalance.vi
   return visibleCards(state.deck, count)
 }
 
-export function beginPlayerChallenge(state: BattleState, spell: Spell): BattleState {
+/**
+ * What a Combo run passes in alongside the attacking word.
+ *
+ * `equipped` is only consulted to decide which *other* words in the chosen
+ * sentence may also become gaps — the Combo in Combo mode. Omit this
+ * argument entirely and the attack is a normal question, which is what a
+ * Normal run does and what every existing caller gets.
+ */
+export interface ComboContext {
+  equipped: readonly Spell[]
+  rng?: () => number
+}
+
+export function beginPlayerChallenge(
+  state: BattleState,
+  spell: Spell,
+  combo?: ComboContext | null,
+): BattleState {
   // Attacking: the card shows the word's first syllable and the player
-  // supplies the whole Korean word.
-  const challenge = generateChallenge(spell, 'attack', 'eng_to_kor')
+  // supplies the whole Korean word. In Combo mode it supplies the form the
+  // sentence needs instead — and if this word's list cannot support that,
+  // the normal question stands in for it rather than the attack failing.
+  const challenge =
+    (combo ? generateComboChallenge(spell, 'attack', { equipped: combo.equipped, rng: combo.rng }) : null) ??
+    generateChallenge(spell, 'attack', 'eng_to_kor')
   return { ...state, phase: 'player_challenge', activeChallenge: challenge, lastResult: null }
 }
 
@@ -230,7 +256,8 @@ export interface AttackOutcome {
 export function resolvePlayerAttack(
   state: BattleState,
   spell: Spell,
-  submitted: string,
+  /** A list in Combo mode, one entry per gap; a single string otherwise. */
+  submitted: string | readonly string[],
   might = 1,
 ): AttackOutcome {
   const challenge = state.activeChallenge as Challenge
@@ -306,12 +333,23 @@ export function beginEnemyChallenge(
    * it the harder way round.
    */
   outmatched = 0,
+  /**
+   * A Combo run's volley. Passing it switches the prompts to sentences and
+   * holds the volley to a single one.
+   *
+   * A normal volley can demand several words at once, which is a few taps
+   * on the tile board. The same volley in Combo would be several whole
+   * conjugated forms typed out against one clock — on a boss, close to a
+   * dozen — so multi-prompt is off here. The mode is meant to be harder per
+   * question, not longer per attack.
+   */
+  combo?: ComboContext | null,
 ): BattleState {
   if (dungeonSpells.length === 0) {
     return { ...state, phase: 'enemy_intro', activeChallenge: null, defense: null, timer: null }
   }
 
-  const count = defensePromptCount(state.isBoss, dungeonSpells.length, rng, outmatched)
+  const count = combo ? 1 : defensePromptCount(state.isBoss, dungeonSpells.length, rng, outmatched)
   const challenges: Challenge[] = []
   const used = new Set<string>()
   for (let i = 0; i < count; i++) {
@@ -336,7 +374,14 @@ export function beginEnemyChallenge(
     // about the language rather than a bigger number on its side.
     const direction =
       rng() < outmatched * battleBalance.outmatchedHardDirectionChance ? 'eng_to_kor' : 'kor_to_eng'
-    challenges.push(generateChallenge(spell, 'defense', direction))
+    // A Combo volley gives the sentence one gap and no equipped-word extras:
+    // a defense is answered against a clock, and the enemy's question is
+    // meant to be one form produced under pressure. A word with no target
+    // data falls back to its normal prompt, which is what keeps a mixed
+    // pool playable instead of silently excluding the words the player has
+    // the least data for.
+    const comboChallenge = combo ? generateComboChallenge(spell, 'defense', { maxBlanks: 1, rng }) : null
+    challenges.push(comboChallenge ?? generateChallenge(spell, 'defense', direction))
   }
 
   const defense: DefenseSequence = { challenges, index: 0, results: [] }
@@ -397,9 +442,21 @@ export function defenseOutcomeFor(
   timedOut: boolean,
   remainingSeconds: number,
   totalSeconds: number,
+  /**
+   * False for a Combo prompt, where the counter is off.
+   *
+   * The counter rewards answering inside the first part of the clock, which
+   * on the tile board means recognising the word instantly. Typing out a
+   * whole conjugated form cannot be done in that window, so leaving it on
+   * would make it a reward Combo could never collect — and widening the
+   * window for Combo would be changing a combat number for a question
+   * format, which is not what it is there to measure.
+   */
+  allowCounter = true,
 ): DefenseOutcome {
   if (timedOut || !correct) return 'hit'
   if (totalSeconds <= 0) return 'blocked'
+  if (!allowCounter) return 'blocked'
   const left = Math.max(0, Math.min(totalSeconds, remainingSeconds)) / totalSeconds
   return left > battleBalance.counterWindow ? 'countered' : 'blocked'
 }
@@ -456,7 +513,8 @@ export interface DefensePromptOutcome {
 export function resolveDefensePrompt(
   state: BattleState,
   spell: Spell,
-  submitted: string,
+  /** A list in Combo mode, one entry per gap; a single string otherwise. */
+  submitted: string | readonly string[],
   timedOut: boolean,
   timerSeconds: number,
   /** The defending Totem's damage reduction — totemBalance.mitigation(). */
@@ -480,6 +538,7 @@ export function resolveDefensePrompt(
     timedOut,
     state.timer?.remainingSeconds ?? 0,
     state.timer?.totalSeconds ?? timerSeconds,
+    !challenge.combo,
   )
   const counterDamage =
     outcome === 'countered'

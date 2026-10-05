@@ -21,42 +21,12 @@
  */
 
 import type { Spell } from '@/domain/spell'
+import type { ComboBlank, ComboPrompt, ComboTarget } from '@/domain/combo'
+
+export type { ComboBlank, ComboPrompt, ComboTarget }
 
 /** What Combo draws a blank over. */
 export const COMBO_BLANK = '________'
-
-export interface ComboTarget {
-  /** The vocabulary entry this refers to, in dictionary form. */
-  dictionaryForm: string
-  /** The exact string that appears in the sentence. */
-  surfaceForm: string
-}
-
-export interface ComboBlank {
-  dictionaryForm: string
-  /** The expected answer, exactly as the list wrote it. */
-  surfaceForm: string
-  /**
-   * The Compendium entry this blank belongs to, when one is equipped for
-   * the run. The primary blank always has one; a secondary blank only
-   * exists because an equipped word was found in the sentence, so it does
-   * too. Kept so the UI can label a blank, not to credit it — see
-   * `comboEngine`, where only the primary word's stats move.
-   */
-  spellId: string
-  /** True for the word the attack was launched with. Exactly one is. */
-  primary: boolean
-}
-
-export interface ComboPrompt {
-  /** The sentence with each chosen form replaced by COMBO_BLANK. */
-  text: string
-  /** The untouched sentence, for showing after the answer. */
-  sentence: string
-  translation: string
-  /** Expected answers in the order their blanks appear in the sentence. */
-  blanks: ComboBlank[]
-}
 
 /**
  * How many blanks a single Combo question may carry.
