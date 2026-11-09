@@ -1,4 +1,5 @@
-import type { WordType } from '@/config/wordTypes'
+import type { Element, WordType } from '@/config/wordTypes'
+import { elementDefs, elementFor, type ElementDef } from '@/config/wordTypes'
 
 /**
  * Spell / word domain model.
@@ -63,6 +64,33 @@ export interface Spell {
   sampleTargets2: string
 
   /**
+   * Up to seven sentences for this word, rising in difficulty — index 0 is
+   * level 1, a plain present-tense line; index 6 is a paragraph.
+   *
+   * Combo mode picks one by how hard the fight is and blanks the word out
+   * of it (see systems/sentenceBlank.ts). There is deliberately no column
+   * saying which part of the sentence the word became: the deck writes
+   * Korean, and the game finds the word in it.
+   *
+   * Short arrays are fine, and so are gaps — a deck that only wrote levels
+   * 1 to 3 simply has nothing to ask above level 3, and the nearest level
+   * it does have is used instead.
+   */
+  levelSentences: string[]
+  levelTranslations: string[]
+
+  /**
+   * The element this entry was given by its deck, or '' to derive it from
+   * the word type as the game always has.
+   *
+   * Decks began naming elements directly, and a named one has to win:
+   * deriving 'earth' from "noun" would quietly overrule a deck that said
+   * Aether. Stored rather than resolved so that re-exporting gives the
+   * deck back what it wrote.
+   */
+  element: Element | ''
+
+  /**
    * Conjugations. Populated for verbs and adjectives, or for the derived
    * 하다 verb of a noun/phrase (검토 → 검토하다); empty otherwise.
    */
@@ -98,6 +126,36 @@ export interface Spell {
 
   createdAt: string
   lastPracticedAt: string | null
+}
+
+/**
+ * The element to show for an entry: the one its deck named, else the one
+ * its word type implies.
+ */
+export function elementOf(spell: Pick<Spell, 'element' | 'wordType'>): Element {
+  return spell.element && spell.element in elementDefs ? spell.element : elementFor(spell.wordType)
+}
+
+export function elementDefOf(spell: Pick<Spell, 'element' | 'wordType'>): ElementDef {
+  return elementDefs[elementOf(spell)]
+}
+
+/**
+ * The entry's sentences, level 1 first, with the gaps left out.
+ *
+ * Paired with the level each one actually is, since a deck may skip some
+ * and Combo needs to know how hard the one it picked really was.
+ */
+export function levelledSentences(
+  spell: Pick<Spell, 'levelSentences' | 'levelTranslations'>,
+): { level: number; sentence: string; translation: string }[] {
+  const out: { level: number; sentence: string; translation: string }[] = []
+  for (let i = 0; i < (spell.levelSentences ?? []).length; i++) {
+    const sentence = (spell.levelSentences[i] ?? '').trim()
+    if (!sentence) continue
+    out.push({ level: i + 1, sentence, translation: (spell.levelTranslations?.[i] ?? '').trim() })
+  }
+  return out
 }
 
 export function spellAccuracy(spell: Spell): number {

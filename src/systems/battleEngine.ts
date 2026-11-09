@@ -9,6 +9,7 @@ import type {
 import type { Challenge } from '@/domain/challenge'
 import type { WordRunStats } from '@/domain/dungeon'
 import { battleBalance, type DungeonTierId } from '@/config/balance'
+import type { SentenceLevelContext } from '@/config/comboLevels'
 import { bossHpForLevel, enemyDamageForLevel, enemyHpForLevel, levelGap } from './enemyLevel'
 import { mimicBalance } from '@/config/dungeonEvents'
 import type { WorldPack } from '@/config/worldManifest'
@@ -187,16 +188,18 @@ export function visibleHand(state: BattleState, count: number = battleBalance.vi
 }
 
 /**
- * What a Combo run passes in alongside the attacking word.
+ * What a Combo run passes in alongside the fight.
  *
- * `equipped` is only consulted to decide which *other* words in the chosen
- * sentence may also become gaps — the Combo in Combo mode. Omit this
- * argument entirely and the attack is a normal question, which is what a
- * Normal run does and what every existing caller gets.
+ * Only the Totem's level is needed from the player's side: the foe's level
+ * and whether it is a boss already sit on the battle, and together they
+ * decide how hard a sentence the word is asked in (see
+ * config/comboLevels.ts). Omit this argument entirely and the question is
+ * a normal one, which is what a Normal run does and what every existing
+ * caller gets.
  */
 export interface ComboContext {
-  equipped: readonly Spell[]
-  rng?: () => number
+  totemLevel: number
+  tierId?: DungeonTierId
 }
 
 export function beginPlayerChallenge(
@@ -209,7 +212,7 @@ export function beginPlayerChallenge(
   // sentence needs instead — and if this word's list cannot support that,
   // the normal question stands in for it rather than the attack failing.
   const challenge =
-    (combo ? generateComboChallenge(spell, 'attack', { equipped: combo.equipped, rng: combo.rng }) : null) ??
+    (combo ? generateComboChallenge(spell, 'attack', levelContextFor(state, combo, spell)) : null) ??
     generateChallenge(spell, 'attack', 'eng_to_kor')
   return { ...state, phase: 'player_challenge', activeChallenge: challenge, lastResult: null }
 }
@@ -230,6 +233,23 @@ export function beginPlayerChallenge(
  * word is a tile or two on the board anyway, so there was never much to
  * hide.
  */
+/**
+ * The question "how hard should this sentence be", in the terms
+ * config/comboLevels.ts answers it in.
+ *
+ * Assembled here because this is the only place that holds both halves:
+ * the Totem comes from the run and the foe comes from the battle.
+ */
+function levelContextFor(state: BattleState, combo: ComboContext, spell: Spell): SentenceLevelContext {
+  return {
+    totemLevel: combo.totemLevel,
+    enemyLevel: state.enemy.level,
+    isBoss: state.isBoss,
+    charge: spell.charge ?? 0,
+    ...(combo.tierId ? { tierId: combo.tierId } : {}),
+  }
+}
+
 export function attackCardAvatar(korean: string): string {
   const word = korean.trim()
   if (word.length === 0) return '?'
@@ -256,8 +276,7 @@ export interface AttackOutcome {
 export function resolvePlayerAttack(
   state: BattleState,
   spell: Spell,
-  /** A list in Combo mode, one entry per gap; a single string otherwise. */
-  submitted: string | readonly string[],
+  submitted: string,
   might = 1,
 ): AttackOutcome {
   const challenge = state.activeChallenge as Challenge
@@ -380,7 +399,9 @@ export function beginEnemyChallenge(
     // data falls back to its normal prompt, which is what keeps a mixed
     // pool playable instead of silently excluding the words the player has
     // the least data for.
-    const comboChallenge = combo ? generateComboChallenge(spell, 'defense', { maxBlanks: 1, rng }) : null
+    const comboChallenge = combo
+      ? generateComboChallenge(spell, 'defense', levelContextFor(state, combo, spell))
+      : null
     challenges.push(comboChallenge ?? generateChallenge(spell, 'defense', direction))
   }
 
@@ -513,8 +534,7 @@ export interface DefensePromptOutcome {
 export function resolveDefensePrompt(
   state: BattleState,
   spell: Spell,
-  /** A list in Combo mode, one entry per gap; a single string otherwise. */
-  submitted: string | readonly string[],
+  submitted: string,
   timedOut: boolean,
   timerSeconds: number,
   /** The defending Totem's damage reduction — totemBalance.mitigation(). */

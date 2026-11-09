@@ -196,10 +196,10 @@ interface DungeonStore {
   selectCard(spellId: string): void
   /** The word the barrier demands next, or null when it is down. */
   spinBarrier(): string | null
-  submitAttackAnswer(text: string | string[]): void
+  submitAttackAnswer(text: string): void
   continueAfterPlayerResolve(): void
   tickBattleTimer(deltaSeconds: number): void
-  submitDefenseAnswer(text: string | string[]): void
+  submitDefenseAnswer(text: string): void
   triggerDefenseTimeout(): void
   continueAfterEnemyResolve(): void
   continueAfterVictory(): void
@@ -246,14 +246,14 @@ function totemDeckIds(run: DungeonRunState): string[] {
 /**
  * What a Combo run hands the battle engine, or null in a Normal run.
  *
- * The equipped words are passed so that a sentence can take a second gap
- * for another word the player actually brought down here — the Combo in
- * Combo mode. In a Normal run this is null and the engine behaves exactly
- * as it always has.
+ * The Totem's level goes in because that is half of the gap that decides
+ * how hard a sentence the fight asks for; the other half is the foe, which
+ * the engine already has. In a Normal run this is null and the engine
+ * behaves exactly as it always has.
  */
 function comboContextFor(run: DungeonRunState): ComboContext | null {
   if (run.config.combatMode !== 'combo') return null
-  return { equipped: resolveSpells(totemDeckIds(run), usePersistentStore.getState().spells) }
+  return { totemLevel: levelOf(run.config.totemId), tierId: run.config.tierId }
 }
 
 /**
@@ -1142,7 +1142,7 @@ function resolveTreasure(set: SetFn, run: DungeonRunState, correct: boolean) {
   })
 }
 
-function resolveDefense(set: SetFn, get: GetFn, text: string | string[], timedOut: boolean) {
+function resolveDefense(set: SetFn, get: GetFn, text: string, timedOut: boolean) {
   const { battle, run, submitting } = get()
   if (!battle || !run || submitting) return
   if (battle.phase !== 'enemy_challenge' || !battle.activeChallenge || !battle.defense) return

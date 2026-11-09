@@ -16,7 +16,7 @@ export type WordType =
   | 'expression'
   | 'grammar'
 
-export type Element = 'earth' | 'fire' | 'water' | 'wind' | 'lightning' | 'metal'
+export type Element = 'earth' | 'fire' | 'water' | 'wind' | 'lightning' | 'metal' | 'aether'
 
 export interface WordTypeDef {
   id: WordType
@@ -51,6 +51,14 @@ export const elementDefs: Record<Element, ElementDef> = {
   wind: { id: 'wind', label: '바람', icon: '🌬️', colorVar: '--element-wind' },
   lightning: { id: 'lightning', label: '번개', icon: '⚡', colorVar: '--element-lightning' },
   metal: { id: 'metal', label: '쇠', icon: '⚙️', colorVar: '--element-metal' },
+  // Written by a deck rather than derived from a word type: nothing in
+  // wordTypeDefs produces it. See elementOf() in domain/spell.ts.
+  aether: { id: 'aether', label: '허공', icon: '✦', colorVar: '--element-aether' },
+}
+
+/** Whether a string names an Element, for reading one out of a deck. */
+export function isElement(value: unknown): value is Element {
+  return typeof value === 'string' && value in elementDefs
 }
 
 export const wordTypeDefs: Record<WordType, WordTypeDef> = {

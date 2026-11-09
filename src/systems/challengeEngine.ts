@@ -2,7 +2,8 @@ import type { Spell } from '@/domain/spell'
 import type { Challenge, ChallengeContext, ChallengeDirection } from '@/domain/challenge'
 import { makeId } from './idGen'
 import { checkAnswer } from './answerChecker'
-import { buildComboPrompt, comboPromptCorrect, type ComboPromptOptions } from './comboTargets'
+import { buildComboQuestion } from './comboSentence'
+import type { SentenceLevelContext } from '@/config/comboLevels'
 import { acceptableAnswers, recordChallengeOutcome, type ChallengeOutcomeResult } from './spellCompendium'
 
 /**
@@ -29,21 +30,22 @@ export function generateChallenge(
 }
 
 /**
- * A Combo question for this entry, or null when its vocabulary list has
- * nothing Combo can ask about.
+ * A Combo question for this entry, or null when nothing in it can carry
+ * one.
  *
- * Null is an ordinary answer. A word imported before Combo existed carries
- * no target data, and a Combo run's word pool will usually be a mix — so
- * the caller falls back to `generateChallenge` for that word rather than
- * re-drawing. Re-drawing would quietly steer a volley away from the words
- * the player is weakest on, which is the opposite of what the draw is for.
+ * Null is an ordinary answer. A word may have no sentences at all, or
+ * none its headword can be found in, and a Compendium will usually be a
+ * mix — so the caller falls back to `generateChallenge` for that word
+ * rather than re-drawing. Re-drawing would quietly steer a volley away
+ * from the words the player is weakest on, which is the opposite of what
+ * the draw is for.
  */
 export function generateComboChallenge(
   spell: Spell,
   context: ChallengeContext,
-  options: ComboPromptOptions = {},
+  level: SentenceLevelContext,
 ): Challenge | null {
-  const combo = buildComboPrompt(spell, options)
+  const combo = buildComboQuestion(spell, level)
   if (!combo) return null
   return {
     id: makeId('chal'),
@@ -76,31 +78,23 @@ export interface ChallengeResolution extends ChallengeOutcomeResult {
  * words in the sentence. Combo is a different question about the same word,
  * not a different amount of progress.
  *
- * `submitted` takes a list because a Combo question may have several gaps;
- * a normal question reads the first entry, and a single string is still the
- * ordinary way to call this.
  */
 export function resolveChallenge(
   spell: Spell,
   challenge: Challenge,
-  submitted: string | readonly string[],
+  submitted: string,
   compendiumContext: 'challenge' | 'attack' | 'defense',
 ): ChallengeResolution {
+  const kind = challenge.direction === 'eng_to_kor' ? 'korean' : 'english'
+  // A Combo answer is checked against the one form its sentence asked for
+  // and nothing else. The ordinary list — the entry's other spellings, its
+  // alternatives — is right for a dictionary form and wrong for a
+  // conjugation: accepting 통하다 where the sentence wanted 통했는데 would
+  // let through the exact mistake the mode exists to catch.
   const correct = challenge.combo
-    ? comboPromptCorrect(answerList(submitted), challenge.combo)
-    : checkAnswer(
-        firstAnswer(submitted),
-        acceptableAnswers(spell, challenge.direction === 'eng_to_kor' ? 'korean' : 'english'),
-        challenge.direction === 'eng_to_kor' ? 'korean' : 'english',
-      )
+    ? checkAnswer(submitted, [challenge.combo.answer], kind)
+    : checkAnswer(submitted, acceptableAnswers(spell, kind), kind)
   const outcome = recordChallengeOutcome(spell, correct, compendiumContext)
   return { ...outcome, correct }
 }
 
-function answerList(submitted: string | readonly string[]): string[] {
-  return typeof submitted === 'string' ? [submitted] : [...submitted]
-}
-
-function firstAnswer(submitted: string | readonly string[]): string {
-  return typeof submitted === 'string' ? submitted : (submitted[0] ?? '')
-}

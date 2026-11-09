@@ -46,6 +46,14 @@ interface ChallengeViewProps {
    * sensible thing for a word whose list cannot support a sentence.
    */
   comboUnavailable?: boolean
+  /**
+   * Whether to show the sentence's translation.
+   *
+   * On for an attack: the player chose the word, so the English is
+   * context rather than the answer. Off for a defense, where working out
+   * which word the sentence wants is the question.
+   */
+  hints?: boolean
 }
 
 /**
@@ -64,7 +72,9 @@ export function ChallengeView({
   spell = null,
   showCounterWindow = false,
   comboUnavailable = false,
+  hints = false,
 }: ChallengeViewProps) {
+  const combo = challenge.combo ?? null
   const asksForKorean = challenge.direction === 'eng_to_kor'
   const kind = asksForKorean ? 'korean' : 'english'
   // Rebuilt only when the challenge changes — not on every timer tick,
@@ -124,14 +134,32 @@ export function ChallengeView({
           It is context for the question, and context read after the question
           has been answered is not context. Down at the bottom it sat under
           the thing the thumb was aiming at, which is where a glance does not
-          go. */}
-      <ExampleSentence spell={spell} mask={asksForKorean} />
+          go.
 
-      <div className="prompt-label">{asksForKorean ? '한국어로 번역하세요' : '영어로 번역하세요'}</div>
-      {comboUnavailable && <div className="combo-missing faint">이 단어에는 콤보 예문이 없습니다</div>}
-      <div className="prompt-word" lang={asksForKorean ? 'en' : 'ko'}>
-        {challenge.prompt}
-      </div>
+          A Combo question has no separate example: the sentence *is* the
+          question, so showing one above it would be showing two. */}
+      {!combo && <ExampleSentence spell={spell} mask={asksForKorean} />}
+
+      {combo ? (
+        <>
+          <div className="prompt-label">
+            문장에 맞는 활용형을 고르세요
+            {combo.level > 0 && <span className="combo-level">Lv {combo.level}</span>}
+          </div>
+          <p className="combo-sentence" lang="ko">
+            {combo.text}
+          </p>
+          {hints && combo.translation && <p className="combo-translation faint">{combo.translation}</p>}
+        </>
+      ) : (
+        <>
+          <div className="prompt-label">{asksForKorean ? '한국어로 번역하세요' : '영어로 번역하세요'}</div>
+          {comboUnavailable && <div className="combo-missing faint">이 단어에는 콤보 예문이 없습니다</div>}
+          <div className="prompt-word" lang={asksForKorean ? 'en' : 'ko'}>
+            {challenge.prompt}
+          </div>
+        </>
+      )}
 
       {/* What the player has built so far — tap a piece to take it back. */}
       <div className="tile-answer" lang={asksForKorean ? 'ko' : 'en'}>

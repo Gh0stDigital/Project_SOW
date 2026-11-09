@@ -30,30 +30,22 @@ export interface ComboTarget {
   surfaceForm: string
 }
 
-export interface ComboBlank {
-  dictionaryForm: string
-  /** The expected answer, exactly as the list wrote it. */
-  surfaceForm: string
-  /**
-   * The Compendium entry this blank belongs to. The primary blank is the
-   * word the attack was launched with; a secondary blank exists only
-   * because an equipped word was found in the sentence, so it has one too.
-   *
-   * Kept so the interface can label a gap — not to credit it. Only the
-   * primary word's progression moves, so Combo cannot pay out two or three
-   * words' worth of practice for one answer.
-   */
-  spellId: string
-  /** True for the word the attack was launched with. Exactly one blank is. */
-  primary: boolean
-}
-
 export interface ComboPrompt {
-  /** The sentence with each chosen form replaced by a blank. */
+  /** The sentence with the word replaced by a blank. */
   text: string
-  /** The untouched sentence, for showing once the answer is in. */
+  /** The sentence untouched, for showing once the answer is in. */
   sentence: string
   translation: string
-  /** Expected answers in the order their blanks appear in the sentence. */
-  blanks: ComboBlank[]
+  /**
+   * Exactly what the player has to produce — the word as this sentence
+   * inflects it. Always a string the deck itself wrote.
+   */
+  answer: string
+  /**
+   * Which of the deck's difficulty levels the sentence came from, 1 to 7,
+   * or 0 for a sentence that has no level (an older deck's single
+   * example). Shown to the player, since being asked a level 7 sentence
+   * is the fight telling you how far out of your depth you are.
+   */
+  level: number
 }

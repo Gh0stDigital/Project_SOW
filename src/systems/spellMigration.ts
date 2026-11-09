@@ -1,5 +1,5 @@
 import type { Spell } from '@/domain/spell'
-import { isWordType, showsConjugations, type WordType } from '@/config/wordTypes'
+import { isElement, isWordType, showsConjugations, type WordType } from '@/config/wordTypes'
 import { spellBalance } from '@/config/balance'
 import { DEFAULT_WORD_TYPE } from './spellFactory'
 
@@ -92,6 +92,14 @@ export function migrateSpell(raw: Spell): Spell {
     // about it changes.
     sampleTargets: str(loose.sampleTargets),
     sampleTargets2: str(loose.sampleTargets2),
+    // Absent from every save written before decks carried levelled
+    // sentences, which reads as an entry with none: Combo falls back to
+    // its single example, or to the ordinary question.
+    levelSentences: arr(loose.levelSentences),
+    levelTranslations: arr(loose.levelTranslations),
+    // '' means "derive it from the word type", which is what every entry
+    // saved before decks named their own element should keep doing.
+    element: isElement(loose.element) ? loose.element : '',
     derivedVerb,
     // Guard against a save where the type was later changed to one that
     // doesn't conjugate, leaving stale forms behind.

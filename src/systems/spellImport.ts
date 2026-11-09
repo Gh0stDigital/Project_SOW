@@ -39,11 +39,12 @@
  */
 
 import type { Spell } from '@/domain/spell'
-import { definitionsOf } from '@/domain/spell'
+import { definitionsOf, elementOf } from '@/domain/spell'
 import {
   allWordTypes,
-  elementDefFor,
+  isElement,
   showsConjugations,
+  type Element,
   type WordType,
 } from '@/config/wordTypes'
 import { validateNewSpell, type NewSpellInput } from './spellFactory'
@@ -97,6 +98,21 @@ type ColumnKey =
   | 'sampleTranslation2'
   | 'sampleTargets'
   | 'sampleTargets2'
+  | 'level1Sentence'
+  | 'level1Translation'
+  | 'level2Sentence'
+  | 'level2Translation'
+  | 'level3Sentence'
+  | 'level3Translation'
+  | 'level4Sentence'
+  | 'level4Translation'
+  | 'level5Sentence'
+  | 'level5Translation'
+  | 'level6Sentence'
+  | 'level6Translation'
+  | 'level7Sentence'
+  | 'level7Translation'
+  | 'element'
   | 'derivedVerb'
   | 'presentForm'
   | 'pastForm'
@@ -139,7 +155,7 @@ const COLUMN_ALIASES: Record<string, ColumnKey> = {
   '미래형': 'futureForm',
   '메모': 'notes',
   '비고': 'notes',
-  '속성': 'ignore',
+  '속성': 'element',
 
   korean: 'korean',
   kor: 'korean',
@@ -199,6 +215,52 @@ const COLUMN_ALIASES: Record<string, ColumnKey> = {
   'sample targets 2': 'sampleTargets2',
   targets2: 'sampleTargets2',
 
+  // Seven sentences of rising difficulty, the shape decks are written in
+  // now. aliasKey() strips spaces, so "level1Sentence" and
+  // "level 1 sentence" are the same header.
+  'level1 sentence': 'level1Sentence',
+  'sentence level 1': 'level1Sentence',
+  'level1 sentence translation': 'level1Translation',
+  'level1 translation': 'level1Translation',
+  '1단계 예문': 'level1Sentence',
+  '1단계 번역': 'level1Translation',
+  'level2 sentence': 'level2Sentence',
+  'sentence level 2': 'level2Sentence',
+  'level2 sentence translation': 'level2Translation',
+  'level2 translation': 'level2Translation',
+  '2단계 예문': 'level2Sentence',
+  '2단계 번역': 'level2Translation',
+  'level3 sentence': 'level3Sentence',
+  'sentence level 3': 'level3Sentence',
+  'level3 sentence translation': 'level3Translation',
+  'level3 translation': 'level3Translation',
+  '3단계 예문': 'level3Sentence',
+  '3단계 번역': 'level3Translation',
+  'level4 sentence': 'level4Sentence',
+  'sentence level 4': 'level4Sentence',
+  'level4 sentence translation': 'level4Translation',
+  'level4 translation': 'level4Translation',
+  '4단계 예문': 'level4Sentence',
+  '4단계 번역': 'level4Translation',
+  'level5 sentence': 'level5Sentence',
+  'sentence level 5': 'level5Sentence',
+  'level5 sentence translation': 'level5Translation',
+  'level5 translation': 'level5Translation',
+  '5단계 예문': 'level5Sentence',
+  '5단계 번역': 'level5Translation',
+  'level6 sentence': 'level6Sentence',
+  'sentence level 6': 'level6Sentence',
+  'level6 sentence translation': 'level6Translation',
+  'level6 translation': 'level6Translation',
+  '6단계 예문': 'level6Sentence',
+  '6단계 번역': 'level6Translation',
+  'level7 sentence': 'level7Sentence',
+  'sentence level 7': 'level7Sentence',
+  'level7 sentence translation': 'level7Translation',
+  'level7 translation': 'level7Translation',
+  '7단계 예문': 'level7Sentence',
+  '7단계 번역': 'level7Translation',
+
   'derived verb': 'derivedVerb',
   derivedverb: 'derivedVerb',
   'hada verb': 'derivedVerb',
@@ -215,9 +277,16 @@ const COLUMN_ALIASES: Record<string, ColumnKey> = {
   notes: 'notes',
   note: 'notes',
 
-  // Derived, never imported — accepted in a header so a round-tripped
-  // export parses cleanly, then discarded.
-  element: 'ignore',
+  /**
+   * Element.
+   *
+   * It used to be derived from Word Type and thrown away on import, on the
+   * grounds that it was never anything else. Decks now name it — including
+   * values no word type produces, such as Aether — so a named one is read
+   * and kept, and an entry without one still derives it.
+   */
+  element: 'element',
+  '원소': 'element',
 }
 
 /**
@@ -298,6 +367,19 @@ function normalizeAliases<T>(aliases: Record<string, T>): Record<string, T> {
 
 const COLUMN_LOOKUP = normalizeAliases(COLUMN_ALIASES)
 const WORD_TYPE_LOOKUP = normalizeAliases(WORD_TYPE_ALIASES)
+
+/** How many sentence levels a deck may carry. */
+export const LEVEL_COUNT = 7
+
+/**
+ * Reads the Element column, which decks write in English with a capital
+ * ("Aether", "Earth"). An unrecognised value is dropped rather than
+ * refused — the entry simply derives its element as it always did.
+ */
+export function parseElement(value: string): Element | '' {
+  const key = (value ?? '').trim().toLowerCase()
+  return isElement(key) ? key : ''
+}
 
 export function parseWordType(value: string): WordType | null {
   const key = aliasKey(value)
@@ -558,6 +640,27 @@ export function parseImportText(
     const wordType = parseWordType(rawType)
     const derivedVerb = columns ? get('derivedVerb') : ''
 
+    const levelSentences: string[] = []
+    const levelTranslations: string[] = []
+    for (let lv = 1; lv <= LEVEL_COUNT; lv++) {
+      levelSentences.push(columns ? get(`level${lv}Sentence` as ColumnKey) : '')
+      levelTranslations.push(columns ? get(`level${lv}Translation` as ColumnKey) : '')
+    }
+
+    const rawElement = columns ? get('element') : ''
+    const element = parseElement(rawElement)
+
+    /**
+     * A deck of levelled sentences carries no plain example column, and
+     * normal mode shows one under every prompt. Levels 1 and 2 stand in
+     * for it — they are the short, plain ones — without ever overwriting
+     * an example the file actually wrote.
+     */
+    const sampleSentence = (columns ? get('sampleSentence') : '') || levelSentences[0] || ''
+    const sampleTranslation = (columns ? get('sampleTranslation') : '') || levelTranslations[0] || ''
+    const sampleSentence2 = (columns ? get('sampleSentence2') : '') || levelSentences[1] || ''
+    const sampleTranslation2 = (columns ? get('sampleTranslation2') : '') || levelTranslations[1] || ''
+
     const input: NewSpellInput = {
       korean,
       english,
@@ -565,12 +668,15 @@ export function parseImportText(
       ...(wordType ? { wordType } : {}),
       definition2: columns ? get('definition2') : '',
       definition3: columns ? get('definition3') : '',
-      sampleSentence: columns ? get('sampleSentence') : '',
-      sampleTranslation: columns ? get('sampleTranslation') : '',
-      sampleSentence2: columns ? get('sampleSentence2') : '',
-      sampleTranslation2: columns ? get('sampleTranslation2') : '',
+      sampleSentence,
+      sampleTranslation,
+      sampleSentence2,
+      sampleTranslation2,
       sampleTargets: columns ? get('sampleTargets') : '',
       sampleTargets2: columns ? get('sampleTargets2') : '',
+      levelSentences,
+      levelTranslations,
+      element,
       derivedVerb,
       presentForm: columns ? get('presentForm') : '',
       pastForm: columns ? get('pastForm') : '',
@@ -655,12 +761,35 @@ const EXPORT_HEADER = [
   'sample sentence 2',
   'sample sentence translation 2',
   'sample sentence 2 targets',
+  'level1 sentence',
+  'level1 sentence translation',
+  'level2 sentence',
+  'level2 sentence translation',
+  'level3 sentence',
+  'level3 sentence translation',
+  'level4 sentence',
+  'level4 sentence translation',
+  'level5 sentence',
+  'level5 sentence translation',
+  'level6 sentence',
+  'level6 sentence translation',
+  'level7 sentence',
+  'level7 sentence translation',
   'derived verb',
   'present',
   'past',
   'future',
   'notes',
 ]
+
+/** The fourteen level cells, in header order, padded out to seven. */
+function levelCells(spell: Spell): string[] {
+  const out: string[] = []
+  for (let i = 0; i < LEVEL_COUNT; i++) {
+    out.push(spell.levelSentences?.[i] ?? '', spell.levelTranslations?.[i] ?? '')
+  }
+  return out
+}
 
 /** Quotes a CSV cell only when it needs it. */
 function csvCell(value: string): string {
@@ -670,8 +799,10 @@ function csvCell(value: string): string {
 
 /**
  * The player's whole Compendium as CSV, in the same shape the importer
- * reads back. Element is written for the reader's benefit and ignored on
- * re-import, since it is always derived from Word Type.
+ * reads back — levelled sentences included, so a deck survives a round
+ * trip through the game. Element is written as the entry resolves it, so
+ * an entry that derives its element exports the derived one and reimports
+ * as an explicit one; that is the same element either way.
  */
 export function exportSpellsToCsv(spells: Spell[]): string {
   const rows = spells.map((s) => {
@@ -681,7 +812,7 @@ export function exportSpellsToCsv(spells: Spell[]): string {
       // Ids, not display labels — a file exported in one language has to
       // import in another, and labels move when the app is translated.
       s.wordType,
-      elementDefFor(s.wordType).id,
+      elementOf(s),
       s.english,
       s.definition2,
       s.definition3,
@@ -691,6 +822,7 @@ export function exportSpellsToCsv(spells: Spell[]): string {
       s.sampleSentence2,
       s.sampleTranslation2,
       s.sampleTargets2,
+      ...levelCells(s),
       s.derivedVerb,
       forms ? s.presentForm : '',
       forms ? s.pastForm : '',
@@ -712,17 +844,19 @@ export function definitionSummary(spell: Spell): string {
  * adverb and a noun with a derived 하다 verb. CSV so it opens straight
  * into Excel/Sheets/Numbers, but it's just plain text.
  *
- * The two target columns are what Combo mode reads: each names the words
- * inside its sentence and the exact form each one takes there. They are
- * optional — a list without them imports exactly as it always did, and its
- * words simply stay unavailable for Combo questions.
+ * The seven levelled sentence columns are what Combo mode reads now: one
+ * sentence per difficulty, rising from a plain present-tense line to a
+ * paragraph, and the game finds the word inside whichever one it picks.
+ * A deck may write as few of them as it likes. The older target columns
+ * still work, and so does a list with neither — those words are simply
+ * asked the ordinary way.
  */
 export const IMPORT_TEMPLATE_CSV = [
   EXPORT_HEADER.join(','),
-  '전달하다,동사,,to deliver,to convey,to pass along,내용을 담당자에게 전달했어요.,I passed the information along to the person in charge.,전달하다=전달했어요,들은 내용을 그대로 팀에 전달했어요.,I passed on exactly what I heard to the team.,듣다=들은|전달하다=전달했어요,,전달해요,전달했어요,전달할 거예요,',
-  '괜히,부사,,for no reason,needlessly,unnecessarily,괜히 걱정했어요.,I worried for no reason.,괜히=괜히|걱정하다=걱정했어요,,,,,,,,',
-  '검토,명사,,review,examination,consideration,,,,,,,검토하다,검토해요,검토했어요,검토할 거예요,',
-  '안녕하세요,표현/관용구,,hello,,,,,,,,,,,,,common greeting',
+  '달성하다,동사,fire,to achieve,to accomplish,,,,,,,,드디어 목표를 달성했어.,I finally achieved my goal.,지난달에는 목표를 달성하지 못했어.,I did not reach my goal last month.,이번엔 꼭 달성하자.,Let us definitely achieve it this time.,올해 안에 목표를 달성하려고 노력하고 있어.,I am trying to reach my goal within this year.,목표를 달성하면 바로 다음 계획을 세울 거야.,Once I reach the goal I will plan the next one.,,,,,,달성해요,달성했어요,달성할 거예요,',
+  '시사만평,명사,earth,editorial cartoon,political cartoon,,,,,,,,이건 시사만평이야.,This is an editorial cartoon.,어제는 시사만평을 안 봤어.,I did not read any editorial cartoons yesterday.,,,,,,,,,,,,,,,',
+  '딴짓하다,동사,aether,to go off-task,,,,,,,,,나 지금 딴짓해.,I am doing something else right now.,,,,,,,,,,,,,,,,,',
+  '안녕하세요,표현/관용구,,hello,,,,,,,,,,,,,,,,,,,,,,,,,,,common greeting',
 ].join('\n')
 
 /** The short two-column form, for players who just want a quick list. */

@@ -10,6 +10,7 @@ import {
   retypesAnything,
 } from './spellImport'
 import { createSpell } from './spellFactory'
+import { elementOf } from '@/domain/spell'
 
 const NONE: Spell[] = []
 
@@ -86,12 +87,25 @@ describe('structured import', () => {
     expect(row.input.wordType).toBe('expression')
   })
 
-  it('reads Element in a header but never imports it', () => {
+  it('reads the Element column a deck names', () => {
+    // It used to be derived from the word type and thrown away. Decks now
+    // name it, including values no word type produces, so a named one wins.
     const withElement = ['word,element,definition 1,word type', '학교,Fire,school,Noun'].join('\n')
     const row = parseImportText(withElement, NONE).ok[0]
-    // Element is derived from the type — a bogus column cannot override it.
     expect(row.input.wordType).toBe('noun')
-    expect(Object.keys(row.input)).not.toContain('element')
+    expect(row.input.element).toBe('fire')
+  })
+
+  it('accepts an element no word type produces', () => {
+    const row = parseImportText('word,element,definition 1\n딴짓하다,Aether,to go off-task', NONE).ok[0]
+    expect(createSpell(row.input).element).toBe('aether')
+  })
+
+  it('derives the element when the column says something it does not know', () => {
+    const row = parseImportText('word,element,definition 1,word type\n학교,Plasma,school,Noun', NONE).ok[0]
+    expect(row.input.element).toBe('')
+    // And the entry still shows an element, the one its type implies.
+    expect(elementOf(createSpell(row.input))).toBe('earth')
   })
 
   it('warns rather than silently defaulting an unknown word type', () => {
@@ -119,7 +133,12 @@ describe('structured import', () => {
     const result = parseImportText(IMPORT_TEMPLATE_CSV, NONE)
     expect(result.errors).toHaveLength(0)
     expect(result.ok).toHaveLength(4)
-    expect(result.ok.map((r) => r.input.wordType)).toEqual(['action_verb', 'adverb', 'noun', 'expression'])
+    expect(result.ok.map((r) => r.input.wordType)).toEqual([
+      'action_verb',
+      'noun',
+      'action_verb',
+      'expression',
+    ])
   })
 
   it('turns rows straight into creatable inputs', () => {
@@ -594,15 +613,17 @@ describe('the Combo target columns', () => {
     expect(patch.sampleTargets).toBe('연습하다=연습하면|나아지다=나아질 거예요')
   })
 
-  it('ships target data in the downloadable template', () => {
+  it('ships levelled sentences in the downloadable template', () => {
     const result = parseImportText(IMPORT_TEMPLATE_CSV, NONE)
     expect(result.errors).toHaveLength(0)
     expect(result.ok).toHaveLength(4)
-    const verb = result.ok[0]
-    expect(verb.korean).toBe('전달하다')
-    expect(verb.input.sampleTargets).toBe('전달하다=전달했어요')
-    expect(verb.input.sampleSentence).toBe('내용을 담당자에게 전달했어요.')
-    expect(verb.input.presentForm).toBe('전달해요')
+    const verb = createSpell(result.ok[0].input)
+    expect(verb.korean).toBe('달성하다')
+    expect(verb.levelSentences[0]).toBe('드디어 목표를 달성했어.')
+    expect(verb.levelSentences[4]).toBe('목표를 달성하면 바로 다음 계획을 세울 거야.')
+    expect(verb.presentForm).toBe('달성해요')
+    // A deck with no plain example column still shows one in normal mode.
+    expect(verb.sampleSentence).toBe('드디어 목표를 달성했어.')
     expect(result.ok[3].input.notes).toBe('common greeting')
   })
 })

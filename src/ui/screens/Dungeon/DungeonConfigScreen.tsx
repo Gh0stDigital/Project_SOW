@@ -17,7 +17,7 @@ import {
 } from '@/config/balance'
 import { deepestUnlockedTier, isTierUnlocked, isWorldUnlocked, tierRequirement } from '@/config/progression'
 import { reachableWordCount } from '@/systems/spellSetManager'
-import { hasComboData } from '@/systems/comboTargets'
+import { hasComboSentence } from '@/systems/comboSentence'
 import type { CombatMode } from '@/domain/combo'
 import { buildDungeonConfig } from '@/systems/dungeonSession'
 import { isUsable } from '@/systems/totemManager'
@@ -153,7 +153,7 @@ export function DungeonConfigScreen() {
     : (dungeonSet?.spellIds ?? [])
   const comboReady = comboPoolIds.filter((id) => {
     const sp = allSpells.find((x) => x.id === id)
-    return !!sp && hasComboData(sp)
+    return !!sp && hasComboSentence(sp)
   }).length
 
   const canStart =

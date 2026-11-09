@@ -10,18 +10,17 @@ import {
   startBattle,
 } from './battleEngine'
 import { generateComboChallenge } from './challengeEngine'
-import { COMBO_BLANK } from './comboTargets'
+import { buildTileChallenge, assembledText } from './tileAssembly'
 import { createSpell, type NewSpellInput } from './spellFactory'
 import { findWorld } from './worldRegistry'
 
 /**
  * Combo mode inside the battle it borrows.
  *
- * Everything these tests reach for — phases, the defense sequence, the
- * timer, the boss barrier, damage, the log — is the existing battle system
- * untouched. What is new is the question, and the things deliberately
- * switched off around it: the counter window, multi-prompt volleys, and any
- * credit for the second word in a sentence.
+ * Everything reached for here — phases, the defense sequence, the timer,
+ * the boss barrier, damage, the log — is the existing battle untouched.
+ * What is new is the question, and the things deliberately switched off
+ * around it: the counter window and multi-prompt volleys.
  */
 
 const world = findWorld('dragon-king-palace')!
@@ -29,154 +28,172 @@ const TIMER = 12
 
 const spell = (input: NewSpellInput) => createSpell(input)
 
-const 나아지다 = () =>
+const 딴짓하다 = () =>
   spell({
-    korean: '나아지다',
-    english: 'to improve',
+    korean: '딴짓하다',
+    english: 'to go off-task',
     wordType: 'action_verb',
-    sampleSentence: '계속 연습하면 한국어 실력이 나아질 거예요.',
-    sampleTranslation: 'It will improve if you keep practising.',
-    sampleTargets: '연습하다=연습하면|나아지다=나아질 거예요',
+    levelSentences: [
+      '나 지금 딴짓해.',
+      '어제는 딴짓 안 했어.',
+      '딴짓하지 말고 공부하자.',
+      '나도 모르게 자꾸 딴짓하게 돼.',
+      '딴짓하느라 한국어 공부를 못 했어.',
+      '친구가 내가 공부할 때마다 딴짓한다고 하더라고.',
+      '어제는 책상에 앉았는데 또 딴짓하느라 한 시간을 날려 버렸어.',
+    ],
   })
 
-const 연습하다 = () => spell({ korean: '연습하다', english: 'to practise', wordType: 'action_verb' })
+const 통하다 = () =>
+  spell({
+    korean: '통하다',
+    english: 'to connect',
+    wordType: 'action_verb',
+    levelSentences: ['우리 둘은 말이 통해.', '어제는 전화가 안 통했어.', '이 방법이 통할까?'],
+  })
 
-/** A word with no target data — every entry imported before Combo existed. */
+/** A word with nothing Combo can ask about. */
 const plain = (korean: string) => spell({ korean, english: `${korean}-en` })
+
+/** The Totem's level, which is half of what picks the sentence level. */
+const combo = (totemLevel = 20) => ({ totemLevel })
 
 describe('a Combo attack', () => {
   it('asks the sentence instead of the word', () => {
-    const attacker = 나아지다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: [attacker] })
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
     expect(asking.phase).toBe('player_challenge')
-    expect(asking.activeChallenge!.combo!.text).toBe(`계속 연습하면 한국어 실력이 ${COMBO_BLANK}.`)
+    expect(asking.activeChallenge!.combo!.text).toBe('____ 말고 공부하자.')
+    expect(asking.activeChallenge!.combo!.answer).toBe('딴짓하지')
   })
 
-  it('falls back to the normal question for a word with no target data', () => {
-    // A Combo run's pool is a mix. The word still has to be usable.
+  it('falls back to the normal question for a word with no sentence', () => {
     const attacker = plain('학교')
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: [attacker] })
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo())
     expect(asking.activeChallenge!.combo).toBeUndefined()
     expect(asking.activeChallenge!.prompt).toBe('학교-en')
   })
 
   it('is a normal question when no Combo context is passed at all', () => {
-    const attacker = 나아지다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
     expect(beginPlayerChallenge(battle, attacker).activeChallenge!.combo).toBeUndefined()
   })
 
-  it('lands and deals damage when the sentence is completed', () => {
-    const attacker = 나아지다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: [attacker] })
-    const out = resolvePlayerAttack(asking, attacker, ['나아질 거예요'])
+  it('lands and deals damage when the right form is assembled', () => {
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    const out = resolvePlayerAttack(asking, attacker, '딴짓하지')
     expect(out.resolution.correct).toBe(true)
     expect(out.damageDealt).toBeGreaterThan(0)
-    expect(out.state.enemy.currentHp).toBeLessThan(out.state.enemy.maxHp)
   })
 
-  it('misses when the player knows the word but not the form the sentence wants', () => {
-    const attacker = 나아지다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: [attacker] })
-    const out = resolvePlayerAttack(asking, attacker, ['나아져요'])
+  it('misses when the player knows the word but not the form', () => {
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    const out = resolvePlayerAttack(asking, attacker, '딴짓해')
     expect(out.resolution.correct).toBe(false)
     expect(out.damageDealt).toBe(0)
-    // And the usual failed-attack behaviour: the card goes back, the fight
-    // continues, nothing special happens because it was Combo.
     expect(out.state.phase).toBe('player_resolve')
-    expect(out.state.lastResult).toBe('incorrect')
   })
 
-  it('needs every gap, not just the word that was selected', () => {
-    const attacker = 나아지다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, {
-      equipped: [attacker, 연습하다()],
-      rng: () => 0,
-    })
-    expect(asking.activeChallenge!.combo!.blanks).toHaveLength(2)
-    expect(resolvePlayerAttack(asking, attacker, ['연습해요', '나아질 거예요']).resolution.correct).toBe(false)
-    expect(resolvePlayerAttack(asking, attacker, ['연습하면', '나아질 거예요']).resolution.correct).toBe(true)
+  it('refuses the dictionary form, which is the mistake the mode is for', () => {
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    expect(resolvePlayerAttack(asking, attacker, '딴짓하다').resolution.correct).toBe(false)
   })
 
-  it('pays the selected word exactly what a normal answer pays it, and the other gap nothing', () => {
-    // Two or three gaps per answer must not become two or three words'
-    // worth of practice: Combo is a harder question about one word, not a
-    // faster way through the Compendium.
-    const attacker = 나아지다()
-    const practise = 연습하다()
-    const battle = startBattle(spawnEnemy(world, 'seed', 10), [attacker.id], null)
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: [attacker, practise], rng: () => 0 })
-    const out = resolvePlayerAttack(asking, attacker, ['연습하면', '나아질 거예요'])
-    expect(out.resolution.spell.id).toBe(attacker.id)
+  it('pays the word exactly what a normal answer pays it', () => {
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    const out = resolvePlayerAttack(asking, attacker, '딴짓하지')
     expect(out.resolution.spell.charge).toBe(attacker.charge + 1)
     expect(out.resolution.spell.correctAttacks).toBe(attacker.correctAttacks + 1)
-    // The second word is named on its gap, and that is all it gets.
-    const extra = asking.activeChallenge!.combo!.blanks.find((b) => !b.primary)!
-    expect(extra.spellId).toBe(practise.id)
-    expect(practise.charge).toBe(0)
-    expect(practise.timesEncountered).toBe(0)
   })
 
   it('clears a boss barrier requirement like any other correct attack', () => {
-    const attacker = 나아지다()
+    const attacker = 딴짓하다()
     const pool = [attacker, plain('사랑'), plain('먹다')]
     const battle = startBattle(
       spawnBoss(world, 'seed', 20, 'tier10'),
       pool.map((s) => s.id),
       pool.map((s) => s.id),
     )
-    const asking = beginPlayerChallenge(battle, attacker, { equipped: pool })
-    const out = resolvePlayerAttack(asking, attacker, ['나아질 거예요'])
-    expect(out.plateauCleared).toBe(true)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    const answer = asking.activeChallenge!.combo!.answer
+    expect(resolvePlayerAttack(asking, attacker, answer).plateauCleared).toBe(true)
+  })
+
+  it('asks a harder sentence of a foe that outclasses the Totem', () => {
+    const attacker = 딴짓하다()
+    const weak = startBattle(spawnEnemy(world, 'seed', 50), [attacker.id], null)
+    expect(beginPlayerChallenge(weak, attacker, combo(20)).activeChallenge!.combo!.level).toBe(7)
+    const strong = startBattle(spawnEnemy(world, 'seed', 5), [attacker.id], null)
+    expect(beginPlayerChallenge(strong, attacker, combo(40)).activeChallenge!.combo!.level).toBe(1)
+  })
+})
+
+describe('the answer on the tile board', () => {
+  it('cuts the inflected form into one tile per syllable', () => {
+    // No typing: Combo answers the same way the rest of the game does.
+    const board = buildTileChallenge('딴짓하느라', 'korean', [], () => 0)
+    expect(board.granularity).toBe('syllable')
+    expect(board.answerLength).toBe(5)
+  })
+
+  it('reassembles into exactly what the sentence asked for', () => {
+    const attacker = 딴짓하다()
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    const asking = beginPlayerChallenge(battle, attacker, combo(20))
+    const answer = asking.activeChallenge!.combo!.answer
+    const board = buildTileChallenge(answer, 'korean', [], () => 0)
+    const inOrder = [...answer].map((ch) => board.tiles.find((t) => t.text === ch)!)
+    expect(assembledText(inOrder, board.joiner)).toBe(answer)
+    expect(resolvePlayerAttack(asking, attacker, assembledText(inOrder, board.joiner)).resolution.correct).toBe(true)
   })
 })
 
 describe('a Combo defense', () => {
-  const pool = () => [나아지다(), 연습하다(), plain('학교')]
+  const pool = () => [딴짓하다(), 통하다(), plain('학교')]
 
-  it('asks a sentence with one gap', () => {
+  it('asks a sentence under the clock', () => {
     const spells = pool()
     const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
+    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, combo(20))
     expect(asked.phase).toBe('enemy_challenge')
-    expect(asked.activeChallenge!.combo!.blanks).toHaveLength(1)
+    expect(asked.timer?.totalSeconds).toBe(TIMER)
   })
 
   it('never stacks prompts in one volley, even for a boss', () => {
-    // A boss volley in Normal can ask for several words at once. In Combo
-    // that would be several whole forms typed against one clock.
     const spells = pool()
     const battle = startBattle(spawnBoss(world, 'seed', 40, 'tier10'), spells.map((s) => s.id), null)
     for (const roll of [0, 0.5, 0.99]) {
-      const asked = beginEnemyChallenge(battle, spells, TIMER, () => roll, {}, 1, { equipped: spells })
-      expect(asked.defense!.challenges).toHaveLength(1)
+      expect(beginEnemyChallenge(battle, spells, TIMER, () => roll, {}, 1, combo(20)).defense!.challenges).toHaveLength(1)
     }
-    // And the Normal volley it is standing in for still stacks.
-    const normal = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 1)
-    expect(normal.defense!.challenges.length).toBeGreaterThan(1)
+    // And the Normal volley it stands in for still stacks.
+    expect(beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 1).defense!.challenges.length).toBeGreaterThan(1)
   })
 
   it('blocks rather than counters, however fast the answer came', () => {
-    const spells = [나아지다()]
+    const spells = [딴짓하다()]
     const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
+    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, combo(20))
     const full = { ...asked, timer: { totalSeconds: TIMER, remainingSeconds: TIMER, running: true } }
-    const out = resolveDefensePrompt(full, spells[0], ['나아질 거예요'], false, TIMER)
+    const out = resolveDefensePrompt(full, spells[0], asked.activeChallenge!.combo!.answer, false, TIMER)
     expect(out.outcome).toBe('blocked')
     expect(out.counterDamage).toBe(0)
-    expect(out.damageToTotem).toBeGreaterThan(0)
   })
 
   it('still counters a normal prompt in the same battle', () => {
-    // The counter is off for the Combo question, not for the game.
     const spells = [plain('학교')]
     const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
+    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, combo(20))
     expect(asked.activeChallenge!.combo).toBeUndefined()
     const full = { ...asked, timer: { totalSeconds: TIMER, remainingSeconds: TIMER, running: true } }
     const answer = asked.activeChallenge!.direction === 'eng_to_kor' ? '학교' : '학교-en'
@@ -184,29 +201,29 @@ describe('a Combo defense', () => {
   })
 
   it('takes the full hit on a wrong form', () => {
-    const spells = [나아지다()]
+    const spells = [딴짓하다()]
     const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
-    const out = resolveDefensePrompt(asked, spells[0], ['나아져요'], false, TIMER)
+    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, combo(20))
+    const out = resolveDefensePrompt(asked, spells[0], '딴짓하다', false, TIMER)
     expect(out.outcome).toBe('hit')
     expect(out.damageToTotem).toBe(asked.enemy.damage)
   })
 
   it('takes the full hit when the clock runs out', () => {
-    const spells = [나아지다()]
+    const spells = [딴짓하다()]
     const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
+    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, combo(20))
     const out = resolveDefensePrompt(asked, spells[0], '', true, TIMER)
     expect(out.outcome).toBe('hit')
     expect(out.sequenceComplete).toBe(true)
   })
 
-  it('falls back to a normal prompt for a pool word with no target data', () => {
-    const spells = [plain('학교')]
-    const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    const asked = beginEnemyChallenge(battle, spells, TIMER, () => 0, {}, 0, { equipped: spells })
-    expect(asked.activeChallenge!.combo).toBeUndefined()
-    expect(asked.activeChallenge!.context).toBe('defense')
+  it('scales the enemy sentence by the gap, which is what was asked for', () => {
+    const spells = [딴짓하다()]
+    const even = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
+    expect(beginEnemyChallenge(even, spells, TIMER, () => 0, {}, 0, combo(20)).activeChallenge!.combo!.level).toBe(3)
+    const over = startBattle(spawnEnemy(world, 'seed', 60), spells.map((s) => s.id), null)
+    expect(beginEnemyChallenge(over, spells, TIMER, () => 0, {}, 0, combo(20)).activeChallenge!.combo!.level).toBe(7)
   })
 
   it('leaves the counter window balance number alone', () => {
@@ -215,17 +232,17 @@ describe('a Combo defense', () => {
 })
 
 describe('the Combo question itself', () => {
+  const level = { totemLevel: 20, enemyLevel: 20, isBoss: false, charge: 0 }
+
   it('always asks the player to produce Korean', () => {
-    const challenge = generateComboChallenge(나아지다(), 'attack')!
-    expect(challenge.direction).toBe('eng_to_kor')
+    expect(generateComboChallenge(딴짓하다(), 'attack', level)!.direction).toBe('eng_to_kor')
   })
 
   it('quotes the word, not the whole sentence, for the battle log', () => {
-    const challenge = generateComboChallenge(나아지다(), 'attack')!
-    expect(challenge.prompt).toBe('나아지다')
+    expect(generateComboChallenge(딴짓하다(), 'attack', level)!.prompt).toBe('딴짓하다')
   })
 
   it('returns null for an entry Combo cannot ask about', () => {
-    expect(generateComboChallenge(plain('학교'), 'attack')).toBeNull()
+    expect(generateComboChallenge(plain('학교'), 'attack', level)).toBeNull()
   })
 })

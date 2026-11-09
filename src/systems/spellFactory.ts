@@ -1,5 +1,5 @@
 import type { Spell } from '@/domain/spell'
-import { showsConjugations, type WordType } from '@/config/wordTypes'
+import { isElement, showsConjugations, type Element, type WordType } from '@/config/wordTypes'
 import { makeId } from './idGen'
 
 /**
@@ -22,6 +22,11 @@ export interface SpellContentInput {
   /** Combo target metadata, raw: `dictionaryForm=surfaceForm|…`. */
   sampleTargets?: string
   sampleTargets2?: string
+  /** Up to seven sentences of rising difficulty; index 0 is level 1. */
+  levelSentences?: string[]
+  levelTranslations?: string[]
+  /** Element named by the deck; '' derives it from the word type. */
+  element?: Element | ''
   derivedVerb?: string
   presentForm?: string
   pastForm?: string
@@ -53,6 +58,13 @@ export function validateNewSpell(input: SpellContentInput): SpellValidationError
 
 const clean = (v: string | undefined): string => (v ?? '').trim()
 
+/** Trims each level and drops the empty tail, keeping inner gaps in place. */
+function trimLevels(levels: string[] | undefined): string[] {
+  const out = (levels ?? []).map((l) => (l ?? '').trim())
+  while (out.length > 0 && out[out.length - 1] === '') out.pop()
+  return out
+}
+
 /** Default type for an entry created without one specified. */
 export const DEFAULT_WORD_TYPE: WordType = 'noun'
 
@@ -76,6 +88,9 @@ export function normalizeContent(input: SpellContentInput): {
   sampleTranslation2: string
   sampleTargets: string
   sampleTargets2: string
+  levelSentences: string[]
+  levelTranslations: string[]
+  element: Element | ''
   derivedVerb: string
   presentForm: string
   pastForm: string
@@ -99,6 +114,11 @@ export function normalizeContent(input: SpellContentInput): {
     sampleTranslation2: clean(input.sampleTranslation2),
     sampleTargets: clean(input.sampleTargets),
     sampleTargets2: clean(input.sampleTargets2),
+    // Trailing blanks are dropped but inner ones are kept, so a deck that
+    // wrote levels 1, 2 and 5 keeps its 5 at level 5.
+    levelSentences: trimLevels(input.levelSentences),
+    levelTranslations: trimLevels(input.levelTranslations),
+    element: isElement(input.element) ? input.element : '',
     derivedVerb,
     presentForm: keepForms ? clean(input.presentForm) : '',
     pastForm: keepForms ? clean(input.pastForm) : '',

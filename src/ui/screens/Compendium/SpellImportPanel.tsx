@@ -12,7 +12,8 @@ import { elementDefFor, wordTypeDefs } from '@/config/wordTypes'
 import { ElementIcon } from '@/ui/components/ElementIcon'
 import { ShopKeeper } from '@/ui/components/ShopKeeper'
 import { emptyCounter } from '@/systems/wordShop'
-import { hasComboData } from '@/systems/comboTargets'
+import { hasComboSentence } from '@/systems/comboSentence'
+import { xlsxToImportText } from '@/systems/xlsxImport'
 import { createSpell } from '@/systems/spellFactory'
 
 /** Saves text as a local file via a throwaway object URL — no network involved. */
@@ -59,6 +60,7 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
   const [makeSet, setMakeSet] = useState(true)
   const [setName, setSetName] = useState('')
   const [fillBlanks, setFillBlanks] = useState(true)
+  const [fileError, setFileError] = useState<string | null>(null)
   const [retype, setRetype] = useState(false)
   const [imported, setImported] = useState<number | null>(null)
   const [filled, setFilled] = useState(0)
@@ -94,7 +96,7 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
    */
   const comboRows = useMemo(() => {
     const rows = [...result.ok, ...(fillBlanks ? result.fills : [])]
-    return rows.filter((r) => hasComboData(createSpell(r.input))).length
+    return rows.filter((r) => hasComboSentence(createSpell(r.input))).length
   }, [result, fillBlanks])
   const canImport = result.ok.length > 0 || willFill > 0
   const importLabel =
@@ -106,13 +108,31 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
           ? `빈 칸 ${willFill}개 채우기`
           : '가져오기'
 
+  /**
+   * Loads a dropped or chosen file into the box.
+   *
+   * A workbook is read as a workbook rather than asking the player to
+   * export it first. That step was where decks got damaged: these
+   * sentences are full of commas, and an unquoted CSV export tore rows
+   * apart in exactly the column that matters.
+   */
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
+    setFileError(null)
+    if (/\.xlsx$/i.test(file.name)) {
+      file
+        .arrayBuffer()
+        .then(xlsxToImportText)
+        .then(setText)
+        .catch(() => setFileError('이 엑셀 파일을 읽지 못했습니다 — CSV로 내보낸 뒤 다시 시도해 보세요.'))
+      return
+    }
     const reader = new FileReader()
     reader.onload = () => setText(String(reader.result ?? ''))
+    reader.onerror = () => setFileError('파일을 읽지 못했습니다.')
     reader.readAsText(file)
-    e.target.value = ''
   }
 
   function handleImport() {
@@ -185,7 +205,7 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
           leads; the rest are shelved behind it rather than stacked in three
           equal rows of four. */}
       <button className="btn btn-primary btn-block" onClick={() => fileInputRef.current?.click()}>
-        📄 파일 열기 (.txt · .csv)
+        📄 파일 열기 (.xlsx · .csv · .txt)
       </button>
       <div className="shop-shelf">
         <button className="btn btn-ghost btn-sm" onClick={() => setText(IMPORT_TEMPLATE_SIMPLE_CSV)}>
@@ -213,7 +233,14 @@ export function SpellImportPanel({ onDone, onCancel }: SpellImportPanelProps) {
           </button>
         )}
       </div>
-      <input ref={fileInputRef} type="file" accept=".txt,.csv" style={{ display: 'none' }} onChange={handleFile} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt,.csv,.tsv,.xlsx"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+      {fileError && <p className="setup-summary warn">{fileError}</p>}
 
       {hasContent && (
         <>
