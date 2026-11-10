@@ -76,6 +76,25 @@ interface Bed {
   cold: boolean
 }
 
+/**
+ * Half a second of silence, as an mp3.
+ *
+ * Played on a loop by an <audio> element — never heard, and not there to be
+ * heard. On iOS a page that only uses Web Audio is filed under the ambient
+ * audio session, which the hardware ring/silent switch mutes: the context
+ * runs, the gain is up, samples flow, and the phone plays none of it. That
+ * is indistinguishable from a bug from the inside, and it is the usual
+ * reason a game is silent on an iPhone and fine everywhere else.
+ *
+ * An <audio> element playing moves the page to the playback session, which
+ * the switch does not mute. It has to be genuinely silent audio rather than
+ * something turned down, because iOS ignores volume set from script.
+ *
+ * The in-app mute is unaffected and still silences everything: this decides
+ * which session the page gets, not whether it makes noise.
+ */
+const SILENCE_MP3 = 'data:audio/mpeg;base64,SUQzBAAAAAAAIlRTU0UAAAAOAAADTGF2ZjYxLjEuMTAwAAAAAAAAAAAAAAD/83DAAAAAAAAAAAAASW5mbwAAAA8AAAAWAAAC9QBGRkZGT09PT09YWFhYYWFhYWFpaWlpcnJycnJ7e3t7hISEhISNjY2NlpaWlpaenp6ep6enp6ewsLCwsLm5ubnCwsLCwsrKysrT09PT09zc3Nzl5eXl5e7u7u739/f39/////8AAAAATGF2YzYxLjMuAAAAAAAAAAAAAAAAJAQvAAAAAAAAAvXsYDDCAAAAAAAAAAAAAAAAAP/zEMQAAAADSAAAAABMQU1FMy4xMExBTUUz//MSxA0AAANIAAAAAC4xMDBVVVVVTEFNRTMu//MQxBsAAANIAAAAADEwMFVVVVVMQU1FMy7/8xDEKAAAA0gAAAAAMTAwVVVVVVVVVVVVVf/zEMQ1AAADSAAAAABVVVVVVVVVVVVVVVVV//MQxEIAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDETwAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMRcAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxGkAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xLEdgAAA0gAAAAAVVVVVVVVVVVVVVVVVVX/8xDEhAAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMSRAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxJ4AAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDEqwAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMS4AAADSAAAAABVVVVVVVVVVVVVVVVV//MQxMUAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDE0gAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEsTfAAADSAAAAABVVVVVVVVVVVVVVVVVVf/zEMTtAAADSAAAAABVVVVVVVVVVVVVVVVV//MQxPIAAANIAAAAAFVVVVVVVVVVVVVVVVX/8xDE8gAAA0gAAAAAVVVVVVVVVVVVVVVVVf/zEMTyAAADSAAAAABVVVVVVVVVVVVVVVVV'
+
 function inlined(): Record<string, string> | undefined {
   return (globalThis as { __THOTH_INLINE_ASSETS?: Record<string, string> }).__THOTH_INLINE_ASSETS
 }
@@ -175,6 +194,9 @@ export class AudioEngine {
   private everUnlocked = false
   private duckUntil = 0
 
+  /** The silent loop that keeps iOS on the playback session. */
+  private silence: HTMLAudioElement | null = null
+
   private makeContext: () => AudioContextLike
   private random: () => number
 
@@ -185,6 +207,23 @@ export class AudioEngine {
 
   get unlocked(): boolean {
     return this.ctx !== null && this.ctx.state === 'running'
+  }
+
+  /**
+   * What the engine is doing, in the terms the sound panel reports it.
+   *
+   * Exists because "no music on my phone" has two completely different
+   * causes that look identical from the outside: the context never
+   * started, or it is running perfectly and the device is not letting the
+   * sound out. One is a bug here and the other is the ring/silent switch,
+   * and nobody can tell which without being told.
+   */
+  diagnose(): { context: 'none' | AudioContextLike['state']; playing: boolean; session: boolean } {
+    return {
+      context: this.ctx?.state ?? 'none',
+      playing: !!this.music && !this.music.cold && this.ctx?.state === 'running',
+      session: this.silence !== null,
+    }
   }
 
   /**
@@ -257,6 +296,7 @@ export class AudioEngine {
     if (!this.ensureContext()) return
     const ctx = this.ctx!
     this.everUnlocked = true
+    this.takePlaybackSession()
     void this.resume()
     // Older iOS needs to have actually played something before it believes
     // the gesture happened.
@@ -275,6 +315,33 @@ export class AudioEngine {
       this.worldId = queued.worldId
       this.setMusic(queued.music)
       this.setAmbience(queued.ambient)
+    }
+  }
+
+  /**
+   * Starts the silent loop that gets iOS off the ambient audio session —
+   * see SILENCE_MP3. Must run inside the gesture, like everything else
+   * here, and only ever once.
+   *
+   * Entirely best-effort. Where there is no <audio> element, or the play is
+   * refused, the game is exactly as it was.
+   */
+  private takePlaybackSession(): void {
+    if (this.silence || typeof document === 'undefined' || typeof Audio === 'undefined') return
+    try {
+      const el = new Audio(SILENCE_MP3)
+      el.loop = true
+      // Tells iOS not to take the audio fullscreen, which it does for
+      // anything it thinks is a video.
+      el.setAttribute('playsinline', '')
+      el.setAttribute('aria-hidden', 'true')
+      this.silence = el
+      void el.play().catch(() => {
+        // Refused: let it go and leave the session as it was.
+        this.silence = null
+      })
+    } catch {
+      this.silence = null
     }
   }
 

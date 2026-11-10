@@ -2573,11 +2573,11 @@ select:focus {
   justify-content: center;
   align-items: center;
   width: fit-content;
-  /* Cleared past the corner controls. The art is trimmed to its ink and
-     centred, so at phone widths its top-right stroke runs under the pills —
-     which have their own background and would simply cover it. Starting
-     below them is cheaper than shrinking the calligraphy again. */
-  padding: 28px 0 0;
+  /* The corner controls sit at the two edges now, so the logo passes
+     between them and needs no band of clearance above it. That band was
+     costing the menu 28px of height on every screen, which on a short
+     phone is the difference between the list fitting and not. */
+  padding: 2px 0 0;
   margin: 0 auto;
 }
 
@@ -2605,14 +2605,31 @@ select:focus {
    title exit used to sit under a flexible spacer at the foot, which meant
    every new destination pushed it down, and on a short phone it fell off a
    screen that does not scroll. */
+/* The one line in the sound panel that is about the device rather than
+   about the game. */
+.audio-state {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
 .menu-corner {
   position: absolute;
   top: max(10px, env(safe-area-inset-top));
+  left: 14px;
   right: 14px;
   z-index: 6;
   display: flex;
   align-items: center;
-  gap: 6px;
+  /* One at each edge, so the centred logo passes between them. */
+  justify-content: space-between;
+  /* The bar spans the screen but only its buttons are reachable; without
+     this it would swallow taps meant for the art behind it. */
+  pointer-events: none;
+}
+
+.menu-corner > * {
+  pointer-events: auto;
 }
 
 .menu-corner-btn {

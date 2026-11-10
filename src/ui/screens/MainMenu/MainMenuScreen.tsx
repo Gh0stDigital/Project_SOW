@@ -41,7 +41,7 @@ export function MainMenuScreen() {
   return (
     <div className="screen">
       {/* The two controls that are about the app rather than about the game,
-          kept in the corner and out of the column.
+          kept in the corners and out of the column.
 
           The sound panel was put here first, for the reason it still is: a
           row of sliders is worth reaching occasionally and not worth the
@@ -49,10 +49,23 @@ export function MainMenuScreen() {
           of the column had the same problem in the end — it sat below a
           flexible spacer, so every destination added to the menu pushed it
           further down, and on a short phone it went off the bottom of a
-          screen that cannot scroll. Up here nothing can push it anywhere. */}
+          screen that cannot scroll. Up here nothing can push it anywhere.
+
+          One in each corner rather than both on the right, and both round
+          rather than a pill beside a circle. Out of the flow they always
+          were, but a pair sitting over the middle of the top edge still
+          cost the title a band of clearance to start below — and that band
+          was pushing the whole menu down. At the two edges the logo passes
+          between them. */}
       <div className="menu-corner">
-        <button className="menu-corner-btn" data-sfx="cancel" onClick={returnToTitle} title="타이틀 화면으로">
-          ← 타이틀
+        <button
+          className="menu-corner-btn icon"
+          data-sfx="cancel"
+          onClick={returnToTitle}
+          title="타이틀 화면으로"
+          aria-label="타이틀 화면으로"
+        >
+          ←
         </button>
         <button
           className="menu-corner-btn icon"
