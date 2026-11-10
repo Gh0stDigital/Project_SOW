@@ -259,6 +259,38 @@ export function DungeonConfigScreen() {
           </div>
 
           <div className="setup-grid">
+            {/* How the run will ask its questions. Everything else about it
+                — the foes, the damage, the clock, what a word earns — is
+                the same either way; only the question changes.
+
+                First in the grid, not last. Last put it against the pinned
+                start button, which on a short phone covers the bottom of
+                whatever sits there until you scroll — and a control you
+                have to scroll to find is one you do not know exists. */}
+            <div className="setup-option mode-switch wide" role="group" aria-label="전투 방식">
+              <span className="setup-option-label">전투 방식</span>
+              <div className="mode-switch-row">
+                <button
+                  type="button"
+                  data-selected={combatMode === 'normal'}
+                  aria-pressed={combatMode === 'normal'}
+                  onClick={() => setCombatMode('normal')}
+                >
+                  <span className="mode-name">일반</span>
+                  <span className="mode-note">단어 하나씩</span>
+                </button>
+                <button
+                  type="button"
+                  data-selected={combatMode === 'combo'}
+                  aria-pressed={combatMode === 'combo'}
+                  onClick={() => setCombatMode('combo')}
+                >
+                  <span className="mode-name">콤보</span>
+                  <span className="mode-note">문장 속 활용형</span>
+                </button>
+              </div>
+            </div>
+
             <button className="setup-option" onClick={() => setOpenSetting('world')}>
               <span className="setup-option-label">세계</span>
               <span className="setup-option-value">{world?.name ?? '— 선택 —'}</span>
@@ -292,27 +324,6 @@ export function DungeonConfigScreen() {
               </span>
             </button>
 
-            {/* How the run will ask its questions. Everything else about it
-                — the foes, the damage, the clock, what a word earns — is
-                the same either way; only the question changes. */}
-            <div className="mode-switch" role="group" aria-label="전투 방식">
-              <button
-                data-selected={combatMode === 'normal'}
-                aria-pressed={combatMode === 'normal'}
-                onClick={() => setCombatMode('normal')}
-              >
-                <span className="mode-name">일반</span>
-                <span className="mode-note faint">단어 하나씩</span>
-              </button>
-              <button
-                data-selected={combatMode === 'combo'}
-                aria-pressed={combatMode === 'combo'}
-                onClick={() => setCombatMode('combo')}
-              >
-                <span className="mode-name">콤보</span>
-                <span className="mode-note faint">문장 속 활용형</span>
-              </button>
-            </div>
           </div>
 
           {/* Combo leans on data the vocabulary list has to carry, so what
