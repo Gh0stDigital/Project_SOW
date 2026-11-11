@@ -24,30 +24,75 @@ import { parseTargets } from './comboTargets'
 const clamp = (n: number) =>
   Math.max(MIN_SENTENCE_LEVEL, Math.min(MAX_SENTENCE_LEVEL, Math.round(n)))
 
-/** The level this fight asks for, before the word's own stock is consulted. */
+/**
+ * The level this fight asks for.
+ *
+ * Rolled, not looked up. The gap between the Totem and the foe sets how
+ * likely each step up the ladder is, and the level is one plus the steps
+ * that came up — so the same matchup asks differently from one question to
+ * the next, and the top of the ladder stays somewhere a far significant
+ * gap takes you rather than somewhere an ordinary bad matchup does.
+ */
 export function sentenceLevelFor(context: SentenceLevelContext): number {
-  const base = baseLevel(context)
-  return clamp(base + (context.isBoss ? comboLevels.bossBonus : 0))
+  const rng = context.rng ?? Math.random
+  if (comboLevels.source !== 'levelGap') return clamp(fixedSourceLevel(context))
+
+  const chance = escalationChance(context)
+  let level = MIN_SENTENCE_LEVEL
+  for (let step = 0; step < comboLevels.steps; step++) {
+    if (rng() < chance) level += 1
+  }
+  return clamp(level)
 }
 
-function baseLevel(context: SentenceLevelContext): number {
+/**
+ * How far out of its depth the Totem is, as a ratio with both sides
+ * anchored — see comboLevels.anchor for why the raw ratio will not do.
+ */
+export function anchoredGap(totemLevel: number, enemyLevel: number): number {
+  const anchor = comboLevels.anchor
+  return (enemyLevel + anchor) / (Math.max(1, totemLevel) + anchor)
+}
+
+/**
+ * The chance that any one step up the ladder is taken, 0..1.
+ *
+ * Exported because it is the number worth looking at when tuning: it is
+ * the whole of what the gap decides.
+ */
+export function escalationChance(context: SentenceLevelContext): number {
+  const gap = anchoredGap(context.totemLevel, context.enemyLevel)
+  const base = interpolate(gap)
+  const boss = context.isBoss ? comboLevels.bossBonus : 0
+  return Math.max(0, Math.min(1, base + boss))
+}
+
+/** The escalation table read as a line: slides between points, holds past the ends. */
+function interpolate(gap: number): number {
+  const points = comboLevels.escalation
+  if (gap <= points[0].gap) return points[0].chance
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]
+    const b = points[i]
+    if (gap <= b.gap) {
+      const t = (gap - a.gap) / (b.gap - a.gap)
+      return a.chance + (b.chance - a.chance) * t
+    }
+  }
+  return points[points.length - 1].chance
+}
+
+/** The sources that do not roll, kept so switching to one still works. */
+function fixedSourceLevel(context: SentenceLevelContext): number {
   switch (comboLevels.source) {
     case 'charge':
       // Charge runs 0..7 and the levels run 1..7, so a word met once asks
       // its simplest sentence and a mastered one asks its hardest.
-      return clamp(context.charge + 1)
+      return context.charge + 1
     case 'totemLevel':
-      return clamp(Math.ceil(Math.max(1, context.totemLevel) / comboLevels.levelsPerStep))
-    case 'fixed':
-      return clamp(comboLevels.fixedLevel)
-    case 'levelGap':
-    default: {
-      const gap = context.enemyLevel / Math.max(1, context.totemLevel)
-      for (const band of comboLevels.gapBands) {
-        if (gap < band.under) return band.level
-      }
-      return comboLevels.top
-    }
+      return Math.ceil(Math.max(1, context.totemLevel) / comboLevels.levelsPerStep)
+    default:
+      return comboLevels.fixedLevel
   }
 }
 

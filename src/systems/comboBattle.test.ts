@@ -55,17 +55,27 @@ const 통하다 = () =>
 /** A word with nothing Combo can ask about. */
 const plain = (korean: string) => spell({ korean, english: `${korean}-en` })
 
-/** The Totem's level, which is half of what picks the sentence level. */
-const combo = (totemLevel = 20) => ({ totemLevel })
+/**
+ * The Totem's level, which is half of what picks the sentence level — and
+ * a pinned roll, because the level is rolled rather than looked up.
+ *
+ * `always(0)` takes every step up the ladder and `always(1)` takes none,
+ * so a test that cares which sentence it gets asks for the top or the
+ * bottom of the deck rather than hoping.
+ */
+const always = (n: number) => () => n
+const combo = (totemLevel = 20, rng: () => number = always(1)) => ({ totemLevel, rng })
 
 describe('a Combo attack', () => {
   it('asks the sentence instead of the word', () => {
     const attacker = 딴짓하다()
     const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
+    // Pinned to the bottom of the ladder, so the sentence is level 1's.
     const asking = beginPlayerChallenge(battle, attacker, combo(20))
     expect(asking.phase).toBe('player_challenge')
-    expect(asking.activeChallenge!.combo!.text).toBe('____ 말고 공부하자.')
-    expect(asking.activeChallenge!.combo!.answer).toBe('딴짓하지')
+    expect(asking.activeChallenge!.combo!.level).toBe(1)
+    expect(asking.activeChallenge!.combo!.text).toBe('나 지금 ____.')
+    expect(asking.activeChallenge!.combo!.answer).toBe('딴짓해')
   })
 
   it('falls back to the normal question for a word with no sentence', () => {
@@ -86,7 +96,7 @@ describe('a Combo attack', () => {
     const attacker = 딴짓하다()
     const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
     const asking = beginPlayerChallenge(battle, attacker, combo(20))
-    const out = resolvePlayerAttack(asking, attacker, '딴짓하지')
+    const out = resolvePlayerAttack(asking, attacker, asking.activeChallenge!.combo!.answer)
     expect(out.resolution.correct).toBe(true)
     expect(out.damageDealt).toBeGreaterThan(0)
   })
@@ -95,7 +105,9 @@ describe('a Combo attack', () => {
     const attacker = 딴짓하다()
     const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
     const asking = beginPlayerChallenge(battle, attacker, combo(20))
-    const out = resolvePlayerAttack(asking, attacker, '딴짓해')
+    // A real form of the word, and not the one this sentence wants.
+    const wrong = asking.activeChallenge!.combo!.answer === '딴짓하느라' ? '딴짓해' : '딴짓하느라'
+    const out = resolvePlayerAttack(asking, attacker, wrong)
     expect(out.resolution.correct).toBe(false)
     expect(out.damageDealt).toBe(0)
     expect(out.state.phase).toBe('player_resolve')
@@ -112,7 +124,7 @@ describe('a Combo attack', () => {
     const attacker = 딴짓하다()
     const battle = startBattle(spawnEnemy(world, 'seed', 20), [attacker.id], null)
     const asking = beginPlayerChallenge(battle, attacker, combo(20))
-    const out = resolvePlayerAttack(asking, attacker, '딴짓하지')
+    const out = resolvePlayerAttack(asking, attacker, asking.activeChallenge!.combo!.answer)
     expect(out.resolution.spell.charge).toBe(attacker.charge + 1)
     expect(out.resolution.spell.correctAttacks).toBe(attacker.correctAttacks + 1)
   })
@@ -130,12 +142,11 @@ describe('a Combo attack', () => {
     expect(resolvePlayerAttack(asking, attacker, answer).plateauCleared).toBe(true)
   })
 
-  it('asks a harder sentence of a foe that outclasses the Totem', () => {
+  it('can reach the top and the bottom of the ladder', () => {
     const attacker = 딴짓하다()
-    const weak = startBattle(spawnEnemy(world, 'seed', 50), [attacker.id], null)
-    expect(beginPlayerChallenge(weak, attacker, combo(20)).activeChallenge!.combo!.level).toBe(7)
-    const strong = startBattle(spawnEnemy(world, 'seed', 5), [attacker.id], null)
-    expect(beginPlayerChallenge(strong, attacker, combo(40)).activeChallenge!.combo!.level).toBe(1)
+    const battle = startBattle(spawnEnemy(world, 'seed', 50), [attacker.id], null)
+    expect(beginPlayerChallenge(battle, attacker, combo(20, always(0))).activeChallenge!.combo!.level).toBe(7)
+    expect(beginPlayerChallenge(battle, attacker, combo(20, always(1))).activeChallenge!.combo!.level).toBe(1)
   })
 })
 
@@ -218,12 +229,13 @@ describe('a Combo defense', () => {
     expect(out.sequenceComplete).toBe(true)
   })
 
-  it('scales the enemy sentence by the gap, which is what was asked for', () => {
+  it('rolls the enemy sentence with the battle\'s own rng', () => {
+    // beginEnemyChallenge's rng drives the draw and the level alike, so a
+    // seeded volley is reproducible end to end.
     const spells = [딴짓하다()]
-    const even = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
-    expect(beginEnemyChallenge(even, spells, TIMER, () => 0, {}, 0, combo(20)).activeChallenge!.combo!.level).toBe(3)
-    const over = startBattle(spawnEnemy(world, 'seed', 60), spells.map((s) => s.id), null)
-    expect(beginEnemyChallenge(over, spells, TIMER, () => 0, {}, 0, combo(20)).activeChallenge!.combo!.level).toBe(7)
+    const battle = startBattle(spawnEnemy(world, 'seed', 20), spells.map((s) => s.id), null)
+    const top = beginEnemyChallenge(battle, spells, TIMER, always(0), {}, 0, combo(20))
+    expect(top.activeChallenge!.combo!.level).toBe(7)
   })
 
   it('leaves the counter window balance number alone', () => {

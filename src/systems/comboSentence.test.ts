@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { comboLevels, type SentenceLevelContext } from '@/config/comboLevels'
-import { buildComboQuestion, hasComboSentence, nearestLevel, sentenceLevelFor } from './comboSentence'
+import {
+  anchoredGap,
+  buildComboQuestion,
+  escalationChance,
+  hasComboSentence,
+  nearestLevel,
+  sentenceLevelFor,
+} from './comboSentence'
 import { createSpell, type NewSpellInput } from './spellFactory'
 
 /**
@@ -40,44 +47,111 @@ const ctx = (patch: Partial<SentenceLevelContext> = {}): SentenceLevelContext =>
   ...patch,
 })
 
+/** The same, with the roll pinned to a level, for tests about sentences. */
+const atLevel = (level: number, patch: Partial<SentenceLevelContext> = {}): SentenceLevelContext => ({
+  ...ctx(patch),
+  // Each of the six steps is taken while the roll is below the chance, so
+  // a threshold picks the level outright.
+  rng: (() => {
+    let taken = 0
+    return () => (taken++ < level - 1 ? 0 : 1)
+  })(),
+})
+
+/** A seeded generator, so a distribution test means the same thing twice. */
+function lcg(seed = 1): () => number {
+  let state = seed >>> 0
+  return () => {
+    state = (state * 1664525 + 1013904223) >>> 0
+    return state / 0x100000000
+  }
+}
+
+/** How often each level comes up over many rolls of the same matchup. */
+function spread(ctx: SentenceLevelContext, rolls = 20000): number[] {
+  const rng = lcg(7)
+  const counts = new Array(8).fill(0)
+  for (let i = 0; i < rolls; i++) counts[sentenceLevelFor({ ...ctx, rng })] += 1
+  return counts.map((n) => n / rolls)
+}
+
 describe('how hard a sentence the fight asks for', () => {
   it('uses the level gap, which is the rule in play', () => {
     expect(comboLevels.source).toBe('levelGap')
   })
 
-  it('speaks simply when the foe is well below you', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 40, enemyLevel: 10 }))).toBe(1)
-    expect(sentenceLevelFor(ctx({ totemLevel: 40, enemyLevel: 28 }))).toBe(2)
+  it('anchors the ratio, so two low levels are not a gulf', () => {
+    // Unanchored, a Lv1 Totem meeting a Lv2 foe reads as twice its level
+    // and was handed a paragraph on its first fight. The anchor is the
+    // whole of the fix.
+    expect(anchoredGap(1, 2)).toBeLessThan(1.2)
+    expect(anchoredGap(1, 1)).toBe(1)
+    // And it still says plainly when something is far above you.
+    expect(anchoredGap(10, 100)).toBeGreaterThan(3)
   })
 
-  it('sits in the middle for an even fight', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 20 }))).toBe(3)
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 22 }))).toBe(3)
+  it('does not divide by a Totem level of zero', () => {
+    expect(() => anchoredGap(0, 10)).not.toThrow()
+    expect(Number.isFinite(anchoredGap(0, 10))).toBe(true)
   })
 
-  it('climbs as the foe outgrows you', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 26 }))).toBe(4)
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 31 }))).toBe(5)
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 36 }))).toBe(6)
+  it('raises the chance of climbing as the foe outgrows you', () => {
+    const chance = (t: number, e: number) => escalationChance(ctx({ totemLevel: t, enemyLevel: e }))
+    expect(chance(20, 5)).toBeLessThan(chance(20, 20))
+    expect(chance(20, 20)).toBeLessThan(chance(20, 40))
+    expect(chance(20, 40)).toBeLessThan(chance(20, 90))
   })
 
-  it('asks its hardest of something twice your level', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 40 }))).toBe(7)
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 99 }))).toBe(7)
+  it('holds the chance steady past the ends of the table', () => {
+    // Nothing below the first point or above the last, so a hopeless
+    // matchup is not somehow harder than a merely terrible one.
+    expect(escalationChance(ctx({ totemLevel: 90, enemyLevel: 1 }))).toBe(comboLevels.escalation[0].chance)
+    const last = comboLevels.escalation[comboLevels.escalation.length - 1].chance
+    expect(escalationChance(ctx({ totemLevel: 1, enemyLevel: 500 }))).toBe(last)
   })
 
-  it('gives a boss a level over its numbers', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 20, enemyLevel: 20, isBoss: true }))).toBe(4)
+  it('is a roll, not a lookup — the same matchup asks differently', () => {
+    const rng = lcg(3)
+    const even = { ...ctx({ totemLevel: 20, enemyLevel: 20 }), rng }
+    const seen = new Set(Array.from({ length: 60 }, () => sentenceLevelFor(even)))
+    expect(seen.size).toBeGreaterThan(2)
+  })
+
+  it('averages the middle of the deck for an even fight', () => {
+    const d = spread(ctx({ totemLevel: 20, enemyLevel: 20 }))
+    const mean = d.reduce((sum, p, level) => sum + p * level, 0)
+    expect(mean).toBeGreaterThan(2.7)
+    expect(mean).toBeLessThan(3.3)
+  })
+
+  it('almost never reaches the top of the ladder in a fair fight', () => {
+    // The complaint this was built from: words were starting at level 7.
+    // An even fight must essentially never do that.
+    expect(spread(ctx({ totemLevel: 20, enemyLevel: 20 }))[7]).toBeLessThan(0.01)
+    expect(spread(ctx({ totemLevel: 6, enemyLevel: 10 }))[7]).toBeLessThan(0.02)
+    // Nor on a brand new Totem meeting the tier it starts in.
+    expect(spread(ctx({ totemLevel: 1, enemyLevel: 2 }))[7]).toBeLessThan(0.01)
+  })
+
+  it('reaches it often once the gap is enormous', () => {
+    const d = spread(ctx({ totemLevel: 10, enemyLevel: 50 }))
+    expect(d[7]).toBeGreaterThan(0.15)
+    expect(d[6] + d[7]).toBeGreaterThan(0.5)
+  })
+
+  it('tilts a boss upward without overriding the roll', () => {
+    const plain = ctx({ totemLevel: 30, enemyLevel: 50 })
+    const boss = ctx({ totemLevel: 30, enemyLevel: 50, isBoss: true })
+    expect(escalationChance(boss)).toBeGreaterThan(escalationChance(plain))
+    // Still a roll: the easy end stays reachable.
+    expect(spread(boss)[1] + spread(boss)[2] + spread(boss)[3]).toBeGreaterThan(0.1)
   })
 
   it('never leaves the one-to-seven range', () => {
-    expect(sentenceLevelFor(ctx({ totemLevel: 1, enemyLevel: 500, isBoss: true }))).toBe(7)
-    expect(sentenceLevelFor(ctx({ totemLevel: 500, enemyLevel: 1 }))).toBe(1)
-  })
-
-  it('survives a totem level of zero without dividing by it', () => {
-    expect(() => sentenceLevelFor(ctx({ totemLevel: 0, enemyLevel: 10 }))).not.toThrow()
-    expect(sentenceLevelFor(ctx({ totemLevel: 0, enemyLevel: 10 }))).toBe(7)
+    const extreme = { ...ctx({ totemLevel: 1, enemyLevel: 999, isBoss: true }), rng: () => 0 }
+    expect(sentenceLevelFor(extreme)).toBe(7)
+    const gentle = { ...ctx({ totemLevel: 999, enemyLevel: 1 }), rng: () => 1 }
+    expect(sentenceLevelFor(gentle)).toBe(1)
   })
 })
 
@@ -115,8 +189,8 @@ describe('picking from what the deck actually wrote', () => {
 })
 
 describe('building the question', () => {
-  it('blanks the word out of the level the fight asked for', () => {
-    const q = buildComboQuestion(딴짓하다(), ctx({ totemLevel: 20, enemyLevel: 20 }))!
+  it('blanks the word out of the level the roll landed on', () => {
+    const q = buildComboQuestion(딴짓하다(), atLevel(3))!
     expect(q.level).toBe(3)
     expect(q.answer).toBe('딴짓하지')
     expect(q.text).toBe('____ 말고 공부하자.')
@@ -124,14 +198,14 @@ describe('building the question', () => {
     expect(q.translation).toBe('L3')
   })
 
-  it('asks a harder sentence of a foe that outclasses you', () => {
-    const q = buildComboQuestion(딴짓하다(), ctx({ totemLevel: 20, enemyLevel: 44 }))!
+  it('asks the hardest sentence when the roll climbs all the way', () => {
+    const q = buildComboQuestion(딴짓하다(), atLevel(7))!
     expect(q.level).toBe(7)
     expect(q.answer).toBe('딴짓하느라')
   })
 
-  it('asks the simplest sentence of something far beneath you', () => {
-    const q = buildComboQuestion(딴짓하다(), ctx({ totemLevel: 40, enemyLevel: 5 }))!
+  it('asks the simplest sentence when it climbs not at all', () => {
+    const q = buildComboQuestion(딴짓하다(), atLevel(1))!
     expect(q.level).toBe(1)
     expect(q.answer).toBe('딴짓해')
   })

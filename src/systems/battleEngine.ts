@@ -200,6 +200,8 @@ export function visibleHand(state: BattleState, count: number = battleBalance.vi
 export interface ComboContext {
   totemLevel: number
   tierId?: DungeonTierId
+  /** The level is rolled; passing one keeps a seeded run seeded. */
+  rng?: () => number
 }
 
 export function beginPlayerChallenge(
@@ -240,13 +242,21 @@ export function beginPlayerChallenge(
  * Assembled here because this is the only place that holds both halves:
  * the Totem comes from the run and the foe comes from the battle.
  */
-function levelContextFor(state: BattleState, combo: ComboContext, spell: Spell): SentenceLevelContext {
+function levelContextFor(
+  state: BattleState,
+  combo: ComboContext,
+  spell: Spell,
+  rng?: () => number,
+): SentenceLevelContext {
   return {
     totemLevel: combo.totemLevel,
     enemyLevel: state.enemy.level,
     isBoss: state.isBoss,
     charge: spell.charge ?? 0,
     ...(combo.tierId ? { tierId: combo.tierId } : {}),
+    // The level is rolled, so a caller holding the battle's own rng hands
+    // it over and a seeded test stays seeded.
+    ...(rng ?? combo.rng ? { rng: rng ?? combo.rng } : {}),
   }
 }
 
@@ -400,7 +410,7 @@ export function beginEnemyChallenge(
     // pool playable instead of silently excluding the words the player has
     // the least data for.
     const comboChallenge = combo
-      ? generateComboChallenge(spell, 'defense', levelContextFor(state, combo, spell))
+      ? generateComboChallenge(spell, 'defense', levelContextFor(state, combo, spell, rng))
       : null
     challenges.push(comboChallenge ?? generateChallenge(spell, 'defense', direction))
   }
