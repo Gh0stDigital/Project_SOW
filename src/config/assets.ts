@@ -12,7 +12,7 @@
  * is no second place to remember to update.
  */
 
-import { assetFiles, assetManifest } from './assetManifest'
+import { assetFiles, assetFrames, assetManifest } from './assetManifest'
 
 export type AssetCategory = keyof typeof assetManifest
 
@@ -209,6 +209,27 @@ export function optionalAsset(category: string, key: string): string | null {
  */
 export function assetKeys(category: AssetCategory): string[] {
   return Object.keys(registry[category] ?? {})
+}
+
+/**
+ * Every frame of an animated asset, in order, or an empty array.
+ *
+ * Empty is the ordinary answer: almost all art is one picture, and a caller
+ * that gets nothing back should draw the single image from getAsset(). Only
+ * art stored as a folder of frames (see scripts/artFiles.mjs) answers here,
+ * and its first frame is the same file getAsset() returns — so the still
+ * and the animation can never drift apart.
+ */
+export function framesFor(category: AssetCategory, key?: string | null): string[] {
+  if (!key || !registry[category]) return []
+  const resolved = registry[category][key] ? key : looseLookup(category, key)
+  if (!resolved) return []
+  const frames = assetFrames[`${category}/${resolved}`]
+  if (!frames || frames.length < 2) return []
+  return frames.map((file) => {
+    const path = `${BASE}/${category}/${file}`
+    return inlinedAssets()?.[path] ?? path
+  })
 }
 
 /** True when a key names real art rather than falling back to the placeholder. */

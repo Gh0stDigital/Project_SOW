@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { assetKeys, getAsset, hasAsset, resolveKey } from './assets'
+import { assetKeys, framesFor, getAsset, hasAsset, resolveKey } from './assets'
 import { assetManifest } from './assetManifest'
 
 // Named against whatever art the folder actually holds. Pinning these to one
@@ -117,5 +117,43 @@ describe('art that has been renamed', () => {
 
   it('still falls back for a name that was never used', () => {
     expect(hasAsset('totems', 'NeverExisted')).toBe(false)
+  })
+})
+
+describe('art stored as a folder of frames', () => {
+  it('lists an animated portrait as one ordinary key', () => {
+    // Solomon is `totems/Solomon.anim/`, several files. The rest of the
+    // game must never have to know that.
+    expect(assetKeys('totems')).toContain('Solomon')
+    expect(hasAsset('totems', 'Solomon')).toBe(true)
+  })
+
+  it('gives every frame, in order', () => {
+    const frames = framesFor('totems', 'Solomon')
+    expect(frames.length).toBeGreaterThan(1)
+    expect(frames[0]).toContain('Solomon.anim/0')
+    expect(frames[1]).toContain('Solomon.anim/1')
+  })
+
+  it('makes the still image the first frame, so the two cannot drift apart', () => {
+    // Anything that has never heard of animation draws getAsset() and gets
+    // a real picture of the character rather than a fallback.
+    expect(getAsset('totems', 'Solomon')).toBe(framesFor('totems', 'Solomon')[0])
+  })
+
+  it('answers with nothing for art that is a single picture', () => {
+    const still = assetKeys('totems').find((k) => k !== 'Solomon' && k !== 'default')!
+    expect(framesFor('totems', still)).toEqual([])
+  })
+
+  it('answers with nothing for a key it does not have', () => {
+    expect(framesFor('totems', 'no-such-totem')).toEqual([])
+    expect(framesFor('totems', '')).toEqual([])
+    expect(framesFor('totems', null)).toEqual([])
+  })
+
+  it('finds frames through the same loose matching as the still', () => {
+    // Keys arrive from saves spelled however they were written.
+    expect(framesFor('totems', 'solomon').length).toBeGreaterThan(1)
   })
 })

@@ -14,8 +14,29 @@
 // carried alongside it, since a case-sensitive host serves `Key.png` and
 // `key.png` as different files.
 
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, readdirSync, statSync } from 'node:fs'
 import { extname, join } from 'node:path'
+
+/**
+ * A folder of frames, rather than a single picture.
+ *
+ * `Solomon.anim/` beside the other portraits is one slot called Solomon
+ * whose art happens to be several files. The suffix is on the folder and
+ * not on the frames so that the slot name stays the artist's filename —
+ * naming the folder is the whole of declaring an animation, which keeps
+ * the rule this module exists for: dropping art in is the only step.
+ *
+ * Frames play in filename order, so they are numbered: 0, 1, 2.
+ */
+export const ANIM_SUFFIX = '.anim'
+
+/** The frames inside an `.anim` folder, in order, as filenames. */
+function framesIn(dir, folder, exts) {
+  return readdirSync(join(dir, folder))
+    .filter((f) => exts.includes(extname(f).toLowerCase()))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+    .map((f) => `${folder}/${f}`)
+}
 
 /** Formats a browser will draw, in the order the optimizer prefers them. */
 export const ART_EXTENSIONS = ['.webp', '.png', '.jpg', '.jpeg']
@@ -51,6 +72,25 @@ export function artIn(dir, canonical = [], exts = ART_EXTENSIONS) {
   const collisions = []
 
   for (const file of readdirSync(dir).sort()) {
+    // A folder of frames. Reported as its own slot, with the first frame as
+    // the file every existing caller already knows how to draw — so art
+    // that gains an animation keeps working everywhere that does not know
+    // about animation at all.
+    if (file.endsWith(ANIM_SUFFIX) && statSync(join(dir, file)).isDirectory()) {
+      const frames = framesIn(dir, file, exts)
+      if (frames.length === 0) continue
+      const name = file.slice(0, -ANIM_SUFFIX.length)
+      const slot = canonicalBy.get(fold(name)) ?? name
+      const first = frames[0]
+      bySlot.set(slot, {
+        slot,
+        file: first,
+        ext: extname(first).toLowerCase().slice(1),
+        rank: -1,
+        frames,
+      })
+      continue
+    }
     const ext = extname(file).toLowerCase()
     if (!exts.includes(ext)) continue
     const name = file.slice(0, -ext.length)
@@ -68,7 +108,7 @@ export function artIn(dir, canonical = [], exts = ART_EXTENSIONS) {
   }
 
   const out = [...bySlot.values()]
-    .map(({ slot, file, ext }) => ({ slot, file, ext }))
+    .map(({ slot, file, ext, frames }) => (frames ? { slot, file, ext, frames } : { slot, file, ext }))
     .sort((a, b) => a.slot.localeCompare(b.slot))
   out.collisions = collisions
   return out
@@ -77,6 +117,13 @@ export function artIn(dir, canonical = [], exts = ART_EXTENSIONS) {
 /** A folder's art as a `{ "<prefix><slot>": filename }` table for a manifest. */
 export function fileTable(entries, prefix = '') {
   return Object.fromEntries(entries.map(({ slot, file }) => [`${prefix}${slot}`, file]))
+}
+
+/** The same, for the slots that have more than one frame. */
+export function frameTable(entries, prefix = '') {
+  return Object.fromEntries(
+    entries.filter((e) => e.frames?.length > 1).map(({ slot, frames }) => [`${prefix}${slot}`, frames]),
+  )
 }
 
 /** Path to a folder's art for one slot, ignoring case, or null. */

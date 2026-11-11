@@ -17,7 +17,7 @@
 import { readdirSync, statSync, writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { artIn, fileTable } from './artFiles.mjs'
+import { artIn, fileTable, frameTable } from './artFiles.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = join(__dirname, '..')
@@ -36,6 +36,7 @@ function build() {
 
   const manifest = {}
   const files = {}
+  const frames = {}
   const warnings = []
   let total = 0
 
@@ -54,6 +55,7 @@ function build() {
     }
     manifest[category] = keys
     Object.assign(files, fileTable(art, `${category}/`))
+    Object.assign(frames, frameTable(art, `${category}/`))
     total += keys.length
   }
 
@@ -75,6 +77,16 @@ ${body}
  * than reconstructed from the key.
  */
 export const assetFiles: Readonly<Record<string, string>> = ${JSON.stringify(files, null, 2)}
+
+/**
+ * Art that is several frames rather than one picture, keyed "category/key".
+ *
+ * Only slots with more than one frame appear. Everything else reads
+ * assetFiles and draws a single image, which is why a slot that gains an
+ * animation keeps working in every place that has never heard of one: the
+ * first frame is its file.
+ */
+export const assetFrames: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(frames, null, 2)}
 `
   return { manifest, source, total, categories: Object.keys(manifest), warnings }
 }

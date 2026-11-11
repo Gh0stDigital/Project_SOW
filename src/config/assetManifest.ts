@@ -7,7 +7,7 @@ export const assetManifest = {
   materials: ['core_lantern_of_ryu', 'hanji', 'memory_dragon_king_palace', 'meteor_iron', 'red_ink'],
   shop: ['keeper', 'smith'],
   spells: ['dark', 'earth', 'fire', 'light', 'water', 'wind'],
-  totems: ['Dolbae', 'Magic_Parasite_Zoah', 'parasite_hunter_Yaharl', 'Silver Knight', 'TheExplorer', 'Thirthteeth_Knight'],
+  totems: ['Dolbae', 'Magic_Parasite_Zoah', 'parasite_hunter_Yaharl', 'Silver Knight', 'Solomon', 'TheExplorer', 'Thirthteeth_Knight'],
   ui: ['awaken', 'cover', 'title'],
 } as const
 
@@ -45,9 +45,25 @@ export const assetFiles: Readonly<Record<string, string>> = {
   "totems/Magic_Parasite_Zoah": "Magic_Parasite_Zoah.webp",
   "totems/parasite_hunter_Yaharl": "parasite_hunter_Yaharl.webp",
   "totems/Silver Knight": "Silver Knight.webp",
+  "totems/Solomon": "Solomon.anim/0.webp",
   "totems/TheExplorer": "TheExplorer.webp",
   "totems/Thirthteeth_Knight": "Thirthteeth_Knight.webp",
   "ui/awaken": "awaken.webp",
   "ui/cover": "cover.webp",
   "ui/title": "title.webp"
+}
+
+/**
+ * Art that is several frames rather than one picture, keyed "category/key".
+ *
+ * Only slots with more than one frame appear. Everything else reads
+ * assetFiles and draws a single image, which is why a slot that gains an
+ * animation keeps working in every place that has never heard of one: the
+ * first frame is its file.
+ */
+export const assetFrames: Readonly<Record<string, readonly string[]>> = {
+  "totems/Solomon": [
+    "Solomon.anim/0.webp",
+    "Solomon.anim/1.webp"
+  ]
 }
